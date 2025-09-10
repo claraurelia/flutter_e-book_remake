@@ -4,8 +4,10 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/book_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../models/book_model.dart';
-import '../../core/constants/app_colors.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/card_styles.dart';
 import '../../widgets/common/loading_widget.dart';
 
 class FavoritesScreen extends StatefulWidget {
@@ -49,7 +51,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading favorites: $e'),
-            backgroundColor: AppColors.error,
+            backgroundColor: Colors.red,
           ),
         );
       }
@@ -84,10 +86,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppColors.error,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -95,48 +94,82 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: CardStyles.flatBackground(isDark),
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        title: const Text('My Favorites'),
+        backgroundColor: CardStyles.flatBackground(isDark),
+        title: AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          style: TextStyle(
+            color: CardStyles.primaryText(isDark),
+            fontWeight: FontWeight.w600,
+            fontSize: 20,
+          ),
+          child: const Text('My Favorites'),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: Icon(
+              Icons.arrow_back,
+              key: ValueKey(isDark),
+              color: CardStyles.primaryText(isDark),
+            ),
+          ),
           onPressed: () => context.pop(),
         ),
+        elevation: 0,
       ),
-      body: _isLoading
-          ? const Center(child: LoadingWidget())
-          : _favoriteBooks.isEmpty
-          ? _buildEmptyState()
-          : _buildFavoritesList(),
+      body: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        child: _isLoading
+            ? const Center(child: LoadingWidget())
+            : _favoriteBooks.isEmpty
+            ? _buildEmptyState(isDark)
+            : _buildFavoritesList(),
+      ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isDark) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.favorite_border, size: 64, color: AppColors.textSecondary),
+          Icon(
+            Icons.favorite_border,
+            size: 64,
+            color: CardStyles.secondaryText(isDark),
+          ),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             'No favorites yet',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: CardStyles.primaryText(isDark),
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Start adding books to your favorites!',
-            style: TextStyle(fontSize: 16, color: AppColors.textSecondary),
+            style: TextStyle(
+              fontSize: 16,
+              color: CardStyles.secondaryText(isDark),
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () => context.go('/home'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accentGold,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Browse Books'),
           ),
         ],
@@ -145,10 +178,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   Widget _buildFavoritesList() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return RefreshIndicator(
       onRefresh: _loadFavoriteBooks,
-      backgroundColor: AppColors.surface,
-      color: AppColors.primary,
+      backgroundColor: CardStyles.flatBackground(isDark),
+      color: AppColors.accentGold,
       child: ListView.builder(
         padding: const EdgeInsets.all(16.0),
         itemCount: _favoriteBooks.length,
@@ -161,13 +196,17 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   Widget _buildBookCard(BookModel book) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Card(
-      color: AppColors.surface,
+      color: CardStyles.flatBackground(isDark),
       margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(
         onTap: () => context.push('/book/${book.id}'),
         borderRadius: BorderRadius.circular(8),
-        child: Padding(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
           padding: const EdgeInsets.all(16.0),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,22 +219,26 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   width: 60,
                   height: 80,
                   fit: BoxFit.cover,
-                  placeholder: (context, url) => Container(
+                  placeholder: (context, url) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
                     width: 60,
                     height: 80,
-                    color: AppColors.surfaceVariant,
-                    child: const Icon(
+                    color: isDark ? Colors.grey[800] : Colors.grey[300],
+                    child: Icon(
                       Icons.book,
-                      color: AppColors.textSecondary,
+                      color: CardStyles.secondaryText(isDark),
                     ),
                   ),
-                  errorWidget: (context, url, error) => Container(
+                  errorWidget: (context, url, error) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    curve: Curves.easeInOut,
                     width: 60,
                     height: 80,
-                    color: AppColors.surfaceVariant,
-                    child: const Icon(
+                    color: isDark ? Colors.grey[800] : Colors.grey[300],
+                    child: Icon(
                       Icons.broken_image,
-                      color: AppColors.textSecondary,
+                      color: CardStyles.secondaryText(isDark),
                     ),
                   ),
                 ),
@@ -210,10 +253,10 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   children: [
                     Text(
                       book.title,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: CardStyles.primaryText(isDark),
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -221,17 +264,17 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     const SizedBox(height: 4),
                     Text(
                       'by ${book.author}',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 14,
-                        color: AppColors.textSecondary,
+                        color: CardStyles.secondaryText(isDark),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       book.category,
-                      style: TextStyle(
+                      style: const TextStyle(
                         fontSize: 12,
-                        color: AppColors.primary,
+                        color: AppColors.accentGold,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -296,7 +339,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               // Favorite Button
               IconButton(
                 onPressed: () => _toggleFavorite(book),
-                icon: const Icon(Icons.favorite, color: AppColors.error),
+                icon: const Icon(Icons.favorite, color: Colors.red),
               ),
             ],
           ),

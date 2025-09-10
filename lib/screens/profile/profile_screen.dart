@@ -19,7 +19,9 @@ class ProfileScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Container(
+      body: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
         decoration: BoxDecoration(color: CardStyles.flatBackground(isDark)),
         child: SafeArea(
           child: Consumer<AuthProvider>(
@@ -99,40 +101,52 @@ class ProfileScreen extends StatelessWidget {
         if (canPop) // Only show back button if we can actually pop
           GestureDetector(
             onTap: () => Navigator.of(context).pop(),
-            child: Container(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeInOut,
               width: 48,
               height: 48,
               decoration: CardStyles.smallCard(isDark),
               padding: const EdgeInsets.all(12),
-              child: Icon(
-                FontAwesomeIcons.arrowLeft,
-                size: 20,
-                color: CardStyles.primaryText(isDark),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: Icon(
+                  FontAwesomeIcons.arrowLeft,
+                  key: ValueKey(isDark),
+                  size: 20,
+                  color: CardStyles.primaryText(isDark),
+                ),
               ),
             ),
           ),
         if (canPop) const SizedBox(width: 16),
-        Text(
-          'Profile',
+        AnimatedDefaultTextStyle(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
           style: TextStyle(
             fontSize: 32,
             fontWeight: FontWeight.w800,
             color: CardStyles.primaryText(isDark),
             letterSpacing: -1,
           ),
+          child: const Text('Profile'),
         ),
       ],
     );
   }
 
   Widget _buildProfileCard(dynamic user, bool isDark) {
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
       decoration: CardStyles.modernCard(isDark),
       padding: const EdgeInsets.all(24),
       child: Column(
         children: [
           // Avatar
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
             width: 100,
             height: 100,
             decoration: BoxDecoration(
@@ -172,19 +186,22 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(height: 20),
 
           // Name
-          Text(
-            user.name,
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
             style: TextStyle(
               fontSize: 24,
               fontWeight: FontWeight.w700,
               color: isDark ? AppColors.accentWhite : AppColors.primaryBlack,
             ),
+            child: Text(user.name),
           ),
           const SizedBox(height: 8),
 
           // Email
-          Text(
-            user.email,
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w400,
@@ -192,11 +209,14 @@ class ProfileScreen extends StatelessWidget {
                   ? AppColors.accentWhite.withOpacity(0.7)
                   : AppColors.primaryBlack.withOpacity(0.7),
             ),
+            child: Text(user.email),
           ),
           const SizedBox(height: 16),
 
           // Role badge
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               gradient: LinearGradient(
@@ -546,9 +566,7 @@ class ProfileScreen extends StatelessWidget {
 
     return Column(
       children: [
-        _buildSettingsItem('Theme Settings', FontAwesomeIcons.palette, () {
-          Provider.of<ThemeProvider>(context, listen: false).toggleTheme();
-        }, isDark),
+        _buildThemeToggleItem(context, isDark),
         const SizedBox(height: 12),
         _buildSettingsItem('Notifications', FontAwesomeIcons.bell, () {
           // Navigate to notifications settings
@@ -744,6 +762,114 @@ class ProfileScreen extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  Widget _buildThemeToggleItem(BuildContext context, bool isDark) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      padding: const EdgeInsets.all(20),
+      decoration: CardStyles.modernCard(isDark),
+      child: Row(
+        children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: isDark
+                  ? AppColors.accentWhite.withOpacity(0.1)
+                  : AppColors.primaryBlack.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (child, animation) {
+                return RotationTransition(
+                  turns: animation,
+                  child: FadeTransition(opacity: animation, child: child),
+                );
+              },
+              child: Icon(
+                isDark ? FontAwesomeIcons.moon : FontAwesomeIcons.sun,
+                key: ValueKey(isDark),
+                color: isDark ? AppColors.accentWhite : AppColors.primaryBlack,
+                size: 20,
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 300),
+                  curve: Curves.easeInOut,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? AppColors.accentWhite
+                        : AppColors.primaryBlack,
+                  ),
+                  child: const Text('Theme Mode'),
+                ),
+                const SizedBox(height: 2),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: animation.drive(
+                          Tween(begin: const Offset(0.3, 0), end: Offset.zero),
+                        ),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: Text(
+                    isDark ? 'Dark mode' : 'Light mode',
+                    key: ValueKey(isDark),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark
+                          ? AppColors.accentWhite.withOpacity(0.7)
+                          : AppColors.primaryBlack.withOpacity(0.7),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            transitionBuilder: (child, animation) {
+              return ScaleTransition(scale: animation, child: child);
+            },
+            child: Switch(
+              key: ValueKey(isDark),
+              value: isDark,
+              onChanged: (value) {
+                Provider.of<ThemeProvider>(
+                  context,
+                  listen: false,
+                ).toggleTheme();
+              },
+              activeColor: AppColors.accentGold,
+              inactiveThumbColor: isDark
+                  ? AppColors.accentWhite.withOpacity(0.8)
+                  : AppColors.primaryBlack.withOpacity(0.6),
+              inactiveTrackColor: isDark
+                  ? AppColors.accentWhite.withOpacity(0.2)
+                  : AppColors.primaryBlack.withOpacity(0.2),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
