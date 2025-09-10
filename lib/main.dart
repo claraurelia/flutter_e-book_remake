@@ -40,13 +40,20 @@ class MyApp extends StatelessWidget {
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, child) {
-          return MaterialApp.router(
-            title: 'Flutter Ebook App - Premium Edition',
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
-            themeMode: themeProvider.themeMode,
-            routerConfig: _createRouter(authProvider),
-            debugShowCheckedModeBanner: false,
+          return AnimatedTheme(
+            data: themeProvider.themeMode == ThemeMode.dark
+                ? AppTheme.darkTheme
+                : AppTheme.lightTheme,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeInOut,
+            child: MaterialApp.router(
+              title: 'Flutter Ebook App - Premium Edition',
+              theme: AppTheme.lightTheme,
+              darkTheme: AppTheme.darkTheme,
+              themeMode: themeProvider.themeMode,
+              routerConfig: _createRouter(authProvider),
+              debugShowCheckedModeBanner: false,
+            ),
           );
         },
       ),
