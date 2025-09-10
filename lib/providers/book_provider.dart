@@ -12,7 +12,7 @@ class BookProvider extends ChangeNotifier {
   List<BookModel> _recentBooks = [];
   List<CategoryModel> _categories = [];
   List<BookModel> _searchResults = [];
-  
+
   bool _isLoading = false;
   bool _isLoadingMore = false;
   bool _hasMore = true;
@@ -192,7 +192,28 @@ class BookProvider extends ChangeNotifier {
       // Refresh books list
       await loadBooks(refresh: true);
       await loadRecentBooks();
-      
+
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Add book directly to Firestore (for sample data)
+  Future<bool> addBookDirectly(BookModel book) async {
+    try {
+      _setLoading(true);
+      _clearError();
+
+      await _bookService.addBookDirectly(book);
+
+      // Refresh books list
+      await loadBooks(refresh: true);
+      await loadRecentBooks();
+
       return true;
     } catch (e) {
       _setError(e.toString());
@@ -224,7 +245,7 @@ class BookProvider extends ChangeNotifier {
       await loadBooks(refresh: true);
       await loadFeaturedBooks();
       await loadRecentBooks();
-      
+
       return true;
     } catch (e) {
       _setError(e.toString());
@@ -262,10 +283,12 @@ class BookProvider extends ChangeNotifier {
   Future<void> incrementDownloadCount(String bookId) async {
     try {
       await _bookService.incrementDownloadCount(bookId);
-      
+
       // Update local data
-      _updateBookInLists(bookId, (book) => 
-        book.copyWith(downloadCount: book.downloadCount + 1));
+      _updateBookInLists(
+        bookId,
+        (book) => book.copyWith(downloadCount: book.downloadCount + 1),
+      );
     } catch (e) {
       _setError(e.toString());
     }
@@ -273,10 +296,18 @@ class BookProvider extends ChangeNotifier {
 
   // Helper methods
   void _updateBookInLists(String bookId, BookModel Function(BookModel) update) {
-    _books = _books.map((book) => book.id == bookId ? update(book) : book).toList();
-    _featuredBooks = _featuredBooks.map((book) => book.id == bookId ? update(book) : book).toList();
-    _recentBooks = _recentBooks.map((book) => book.id == bookId ? update(book) : book).toList();
-    _searchResults = _searchResults.map((book) => book.id == bookId ? update(book) : book).toList();
+    _books = _books
+        .map((book) => book.id == bookId ? update(book) : book)
+        .toList();
+    _featuredBooks = _featuredBooks
+        .map((book) => book.id == bookId ? update(book) : book)
+        .toList();
+    _recentBooks = _recentBooks
+        .map((book) => book.id == bookId ? update(book) : book)
+        .toList();
+    _searchResults = _searchResults
+        .map((book) => book.id == bookId ? update(book) : book)
+        .toList();
     notifyListeners();
   }
 
@@ -302,5 +333,47 @@ class BookProvider extends ChangeNotifier {
 
   void clearError() {
     _clearError();
+  }
+
+  // Favorites functionality
+  Future<void> toggleFavorite(String userId, String bookId) async {
+    try {
+      await _bookService.toggleFavorite(userId, bookId);
+
+      // Update local books list if needed
+      final bookIndex = _books.indexWhere((book) => book.id == bookId);
+      if (bookIndex != -1) {
+        final isFavorite = await _bookService.isBookFavorite(userId, bookId);
+        final updatedBook = _books[bookIndex];
+        _books[bookIndex] = updatedBook.copyWith(
+          favoriteCount: isFavorite
+              ? updatedBook.favoriteCount + 1
+              : (updatedBook.favoriteCount - 1)
+                    .clamp(0, double.infinity)
+                    .toInt(),
+        );
+        notifyListeners();
+      }
+    } catch (e) {
+      _setError(e.toString());
+    }
+  }
+
+  Future<List<BookModel>> getUserFavoriteBooks(String userId) async {
+    try {
+      return await _bookService.getUserFavoriteBooks(userId);
+    } catch (e) {
+      _setError(e.toString());
+      return [];
+    }
+  }
+
+  Future<bool> isBookFavorite(String userId, String bookId) async {
+    try {
+      return await _bookService.isBookFavorite(userId, bookId);
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    }
   }
 }

@@ -51,7 +51,10 @@ class BookService {
 
       final snapshot = await query.get();
       return snapshot.docs
-          .map((doc) => BookModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+          .map(
+            (doc) =>
+                BookModel.fromMap(doc.data() as Map<String, dynamic>, doc.id),
+          )
           .toList();
     } catch (e) {
       throw Exception('Failed to get books: $e');
@@ -122,7 +125,7 @@ class BookService {
           .ref()
           .child(AppConstants.bookCoversPath)
           .child('${DateTime.now().millisecondsSinceEpoch}_cover.jpg');
-      
+
       final coverUploadTask = await coverImageRef.putFile(coverImage);
       final coverImageUrl = await coverUploadTask.ref.getDownloadURL();
 
@@ -130,8 +133,10 @@ class BookService {
       final bookFileRef = _storage
           .ref()
           .child(AppConstants.bookFilesPath)
-          .child('${DateTime.now().millisecondsSinceEpoch}_${book.title}.${book.fileType}');
-      
+          .child(
+            '${DateTime.now().millisecondsSinceEpoch}_${book.title}.${book.fileType}',
+          );
+
       final fileUploadTask = await bookFileRef.putFile(bookFile);
       final bookFileUrl = await fileUploadTask.ref.getDownloadURL();
 
@@ -159,6 +164,20 @@ class BookService {
     }
   }
 
+  // Add book directly without file upload (for sample data)
+  Future<String> addBookDirectly(BookModel book) async {
+    try {
+      // Add to Firestore directly
+      final docRef = await _firestore
+          .collection(AppConstants.booksCollection)
+          .add(book.toMap());
+
+      return docRef.id;
+    } catch (e) {
+      throw Exception('Failed to add book: $e');
+    }
+  }
+
   // Update book (Admin only)
   Future<void> updateBook({
     required String bookId,
@@ -167,9 +186,9 @@ class BookService {
     File? newBookFile,
   }) async {
     try {
-      Map<String, dynamic> updateData = updatedBook.copyWith(
-        updatedAt: DateTime.now(),
-      ).toMap();
+      Map<String, dynamic> updateData = updatedBook
+          .copyWith(updatedAt: DateTime.now())
+          .toMap();
 
       // Upload new cover image if provided
       if (newCoverImage != null) {
@@ -177,7 +196,7 @@ class BookService {
             .ref()
             .child(AppConstants.bookCoversPath)
             .child('${DateTime.now().millisecondsSinceEpoch}_cover.jpg');
-        
+
         final coverUploadTask = await coverImageRef.putFile(newCoverImage);
         final coverImageUrl = await coverUploadTask.ref.getDownloadURL();
         updateData['coverImageUrl'] = coverImageUrl;
@@ -188,14 +207,16 @@ class BookService {
         final bookFileRef = _storage
             .ref()
             .child(AppConstants.bookFilesPath)
-            .child('${DateTime.now().millisecondsSinceEpoch}_${updatedBook.title}.${updatedBook.fileType}');
-        
+            .child(
+              '${DateTime.now().millisecondsSinceEpoch}_${updatedBook.title}.${updatedBook.fileType}',
+            );
+
         final fileUploadTask = await bookFileRef.putFile(newBookFile);
         final bookFileUrl = await fileUploadTask.ref.getDownloadURL();
-        
+
         final fileStat = await newBookFile.stat();
         final fileSizeInMB = fileStat.size / (1024 * 1024);
-        
+
         updateData['fileUrl'] = bookFileUrl;
         updateData['fileSizeInMB'] = fileSizeInMB;
       }
@@ -250,9 +271,7 @@ class BookService {
       await _firestore
           .collection(AppConstants.booksCollection)
           .doc(bookId)
-          .update({
-        'downloadCount': FieldValue.increment(1),
-      });
+          .update({'downloadCount': FieldValue.increment(1)});
     } catch (e) {
       throw Exception('Failed to update download count: $e');
     }
@@ -264,9 +283,7 @@ class BookService {
       await _firestore
           .collection(AppConstants.booksCollection)
           .doc(bookId)
-          .update({
-        'favoriteCount': FieldValue.increment(1),
-      });
+          .update({'favoriteCount': FieldValue.increment(1)});
     } catch (e) {
       throw Exception('Failed to update favorite count: $e');
     }
@@ -278,9 +295,7 @@ class BookService {
       await _firestore
           .collection(AppConstants.booksCollection)
           .doc(bookId)
-          .update({
-        'favoriteCount': FieldValue.increment(-1),
-      });
+          .update({'favoriteCount': FieldValue.increment(-1)});
     } catch (e) {
       throw Exception('Failed to update favorite count: $e');
     }
@@ -346,6 +361,123 @@ class BookService {
       return books;
     } catch (e) {
       throw Exception('Failed to search books: $e');
+    }
+  }
+
+  // Toggle favorite book for a user
+  Future<void> toggleFavorite(String userId, String bookId) async {
+    try {
+      final userRef = _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(userId);
+
+      final bookRef = _firestore
+          .collection(AppConstants.booksCollection)
+          .doc(bookId);
+
+      await _firestore.runTransaction((transaction) async {
+        final userDoc = await transaction.get(userRef);
+        final bookDoc = await transaction.get(bookRef);
+
+        if (!userDoc.exists || !bookDoc.exists) {
+          throw Exception('User or book not found');
+        }
+
+        final userData = userDoc.data()!;
+        final bookData = bookDoc.data()!;
+
+        List<String> favoriteBooks = List<String>.from(
+          userData['favoriteBooks'] ?? [],
+        );
+        int favoriteCount = bookData['favoriteCount'] ?? 0;
+
+        if (favoriteBooks.contains(bookId)) {
+          // Remove from favorites
+          favoriteBooks.remove(bookId);
+          favoriteCount = (favoriteCount - 1).clamp(0, double.infinity).toInt();
+        } else {
+          // Add to favorites
+          favoriteBooks.add(bookId);
+          favoriteCount++;
+        }
+
+        // Update user document
+        transaction.update(userRef, {
+          'favoriteBooks': favoriteBooks,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+
+        // Update book document
+        transaction.update(bookRef, {
+          'favoriteCount': favoriteCount,
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      });
+    } catch (e) {
+      throw Exception('Failed to toggle favorite: $e');
+    }
+  }
+
+  // Get user's favorite books
+  Future<List<BookModel>> getUserFavoriteBooks(String userId) async {
+    try {
+      final userDoc = await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(userId)
+          .get();
+
+      if (!userDoc.exists) {
+        return [];
+      }
+
+      final userData = userDoc.data()!;
+      final favoriteBookIds = List<String>.from(
+        userData['favoriteBooks'] ?? [],
+      );
+
+      if (favoriteBookIds.isEmpty) {
+        return [];
+      }
+
+      // Get books in batches (Firestore 'in' query limit is 10)
+      List<BookModel> favoriteBooks = [];
+      for (int i = 0; i < favoriteBookIds.length; i += 10) {
+        final batch = favoriteBookIds.skip(i).take(10).toList();
+
+        final snapshot = await _firestore
+            .collection(AppConstants.booksCollection)
+            .where(FieldPath.documentId, whereIn: batch)
+            .get();
+
+        favoriteBooks.addAll(
+          snapshot.docs.map((doc) => BookModel.fromMap(doc.data(), doc.id)),
+        );
+      }
+
+      return favoriteBooks;
+    } catch (e) {
+      throw Exception('Failed to get favorite books: $e');
+    }
+  }
+
+  // Check if book is in user's favorites
+  Future<bool> isBookFavorite(String userId, String bookId) async {
+    try {
+      final userDoc = await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(userId)
+          .get();
+
+      if (!userDoc.exists) {
+        return false;
+      }
+
+      final userData = userDoc.data()!;
+      final favoriteBooks = List<String>.from(userData['favoriteBooks'] ?? []);
+
+      return favoriteBooks.contains(bookId);
+    } catch (e) {
+      throw Exception('Failed to check favorite status: $e');
     }
   }
 }
