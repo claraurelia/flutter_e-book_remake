@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/book_provider.dart';
 import '../../models/book_model.dart';
 import '../../core/constants/app_colors.dart';
@@ -9,10 +10,7 @@ import '../../widgets/common/loading_widget.dart';
 class BookDetailScreen extends StatefulWidget {
   final String bookId;
 
-  const BookDetailScreen({
-    super.key,
-    required this.bookId,
-  });
+  const BookDetailScreen({super.key, required this.bookId});
 
   @override
   State<BookDetailScreen> createState() => _BookDetailScreenState();
@@ -21,6 +19,7 @@ class BookDetailScreen extends StatefulWidget {
 class _BookDetailScreenState extends State<BookDetailScreen> {
   BookModel? _book;
   bool _isLoading = true;
+  bool _isFavorite = false;
 
   @override
   void initState() {
@@ -30,13 +29,56 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
 
   Future<void> _loadBook() async {
     final bookProvider = Provider.of<BookProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+
     final book = await bookProvider.getBookById(widget.bookId);
-    
+
+    // Check if book is in favorites
+    bool isFavorite = false;
+    if (authProvider.currentUser != null && book != null) {
+      isFavorite = await bookProvider.isBookFavorite(
+        authProvider.currentUser!.uid,
+        book.id,
+      );
+    }
+
     if (mounted) {
       setState(() {
         _book = book;
+        _isFavorite = isFavorite;
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final bookProvider = Provider.of<BookProvider>(context, listen: false);
+
+    if (authProvider.currentUser == null || _book == null) return;
+
+    try {
+      await bookProvider.toggleFavorite(
+        authProvider.currentUser!.uid,
+        _book!.id,
+      );
+
+      setState(() {
+        _isFavorite = !_isFavorite;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _isFavorite ? 'Added to favorites' : 'Removed from favorites',
+          ),
+          backgroundColor: AppColors.success,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
+      );
     }
   }
 
@@ -45,9 +87,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     if (_isLoading) {
       return const Scaffold(
         backgroundColor: AppColors.background,
-        body: Center(
-          child: LoadingWidget(message: 'Loading book details...'),
-        ),
+        body: Center(child: LoadingWidget(message: 'Loading book details...')),
       );
     }
 
@@ -59,10 +99,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
           title: const Text('Book Not Found'),
         ),
         body: const Center(
-          child: Text(
-            'Book not found',
-            style: TextStyle(color: Colors.white),
-          ),
+          child: Text('Book not found', style: TextStyle(color: Colors.white)),
         ),
       );
     }
@@ -110,13 +147,21 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                         placeholder: (context, url) => Container(
                           color: AppColors.surfaceVariant,
                           child: const Center(
-                            child: Icon(Icons.book, size: 80, color: AppColors.textSecondary),
+                            child: Icon(
+                              Icons.book,
+                              size: 80,
+                              color: AppColors.textSecondary,
+                            ),
                           ),
                         ),
                         errorWidget: (context, url, error) => Container(
                           color: AppColors.surfaceVariant,
                           child: const Center(
-                            child: Icon(Icons.error, size: 80, color: AppColors.error),
+                            child: Icon(
+                              Icons.error,
+                              size: 80,
+                              color: AppColors.error,
+                            ),
                           ),
                         ),
                       ),
@@ -152,9 +197,9 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Book stats
                   Row(
                     children: [
@@ -165,14 +210,19 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                       _buildStatItem(Icons.category, _book!.category),
                     ],
                   ),
-                  
+
                   const SizedBox(height: 24),
-                  
+
                   // Price
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
-                      color: _book!.isFree ? AppColors.success : AppColors.primary,
+                      color: _book!.isFree
+                          ? AppColors.success
+                          : AppColors.primary,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -183,9 +233,9 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // Description
                   const Text(
                     'Description',
@@ -204,14 +254,14 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                       height: 1.5,
                     ),
                   ),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // Book details
                   _buildBookInfo(),
-                  
+
                   const SizedBox(height: 32),
-                  
+
                   // Action buttons
                   Row(
                     children: [
@@ -227,12 +277,17 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                       ),
                       const SizedBox(width: 16),
                       ElevatedButton(
-                        onPressed: () => _addToFavorites(),
+                        onPressed: () => _toggleFavorite(),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.surfaceVariant,
+                          backgroundColor: _isFavorite
+                              ? AppColors.error
+                              : AppColors.surfaceVariant,
                           minimumSize: const Size(60, 50),
                         ),
-                        child: const Icon(Icons.favorite_border),
+                        child: Icon(
+                          _isFavorite ? Icons.favorite : Icons.favorite_border,
+                          color: _isFavorite ? Colors.white : null,
+                        ),
                       ),
                     ],
                   ),
@@ -252,10 +307,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
         const SizedBox(width: 4),
         Text(
           value,
-          style: const TextStyle(
-            color: AppColors.textSecondary,
-            fontSize: 14,
-          ),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
         ),
       ],
     );
@@ -297,12 +349,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-            ),
-          ),
+          Text(label, style: const TextStyle(color: AppColors.textSecondary)),
           Text(
             value,
             style: const TextStyle(
@@ -321,16 +368,6 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
       const SnackBar(
         content: Text('Download functionality will be implemented'),
         backgroundColor: AppColors.info,
-      ),
-    );
-  }
-
-  void _addToFavorites() {
-    // TODO: Implement add to favorites functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Added to favorites!'),
-        backgroundColor: AppColors.success,
       ),
     );
   }
