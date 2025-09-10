@@ -1,218 +1,368 @@
 import 'package:flutter/material.dart';
-import '../constants/app_colors.dart';
+import 'package:flutter/services.dart';
+import 'app_colors.dart';
 
 class AppTheme {
-  static ThemeData get darkTheme {
+  // Light Theme
+  static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.dark,
-      colorScheme: const ColorScheme.dark(
-        primary: AppColors.primary,
-        secondary: AppColors.secondary,
-        surface: AppColors.surface,
-        error: AppColors.error,
-        onPrimary: AppColors.onPrimary,
-        onSecondary: Colors.black,
-        onSurface: AppColors.onSurface,
-        onError: Colors.white,
-      ),
-      scaffoldBackgroundColor: AppColors.background,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.surface,
-        foregroundColor: AppColors.onSurface,
+      brightness: Brightness.light,
+      colorScheme: AppColors.lightColorScheme,
+      // fontFamily: 'Poppins', // Disabled for now
+
+      // App Bar Theme
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        centerTitle: true,
+        scrolledUnderElevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        titleTextStyle: const TextStyle(
+          color: AppColors.primaryBlack,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          fontFamily: 'Poppins',
+        ),
+        iconTheme: const IconThemeData(color: AppColors.primaryBlack),
       ),
-      cardTheme: const CardThemeData(
-        color: AppColors.surface,
-        elevation: 4,
+
+      // Scaffold Theme
+      scaffoldBackgroundColor: AppColors.lightColorScheme.surface,
+
+      // Card Theme (Glassmorphism)
+      cardTheme: CardThemeData(
+        color: AppColors.glassLight,
+        elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16)),
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: AppColors.glassBorderLight, width: 1),
         ),
       ),
+
+      // Elevated Button Theme
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: AppColors.onPrimary,
-          elevation: 0,
+          backgroundColor: AppColors.lightColorScheme.primary,
+          foregroundColor: AppColors.lightColorScheme.onPrimary,
+          elevation: 8,
+          shadowColor: AppColors.accentGold.withOpacity(0.3),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 12,
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'Poppins',
           ),
         ),
       ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.primary),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 12,
-          ),
-        ),
-      ),
+
+      // Text Button Theme
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
+          foregroundColor: AppColors.accentGold,
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w500,
+            fontFamily: 'Poppins',
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
+
+      // Input Decoration Theme
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.surfaceVariant,
+        fillColor: AppColors.glassLight,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppColors.glassBorderLight, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppColors.glassBorderLight, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: AppColors.lightColorScheme.primary,
+            width: 2,
+          ),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.error, width: 2),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: AppColors.lightColorScheme.error,
+            width: 1,
+          ),
+        ),
+        labelStyle: const TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w400,
+        ),
+        hintStyle: const TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w400,
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
         ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: AppColors.surface,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textSecondary,
-        type: BottomNavigationBarType.fixed,
-      ),
-      dividerTheme: const DividerThemeData(
-        color: AppColors.surfaceVariant,
-        thickness: 1,
-      ),
-      chipTheme: ChipThemeData(
-        backgroundColor: AppColors.surfaceVariant,
-        labelStyle: const TextStyle(color: AppColors.onSurface),
-        selectedColor: AppColors.primary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+
+      // Text Theme
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.bold,
+        ),
+        displayMedium: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.bold,
+        ),
+        displaySmall: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w600,
+        ),
+        headlineLarge: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.bold,
+        ),
+        headlineMedium: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w600,
+        ),
+        headlineSmall: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w600,
+        ),
+        titleLarge: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w600,
+        ),
+        titleMedium: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w500,
+        ),
+        titleSmall: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w500,
+        ),
+        bodyLarge: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w400,
+        ),
+        bodyMedium: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w400,
+        ),
+        bodySmall: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w400,
+        ),
+        labelLarge: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w500,
+        ),
+        labelMedium: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w500,
+        ),
+        labelSmall: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w500,
         ),
       ),
     );
   }
 
-  static ThemeData get lightTheme {
+  // Dark Theme
+  static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
-      colorScheme: const ColorScheme.light(
-        primary: AppColors.primary,
-        secondary: AppColors.secondary,
-        surface: Colors.white,
-        error: AppColors.error,
-        onPrimary: Colors.white,
-        onSecondary: Colors.white,
-        onSurface: Colors.black87,
-        onError: Colors.white,
-      ),
-      scaffoldBackgroundColor: const Color(0xFFF5F5F5),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+      brightness: Brightness.dark,
+      colorScheme: AppColors.darkColorScheme,
+      // fontFamily: 'Poppins', // Disabled for now
+
+      // App Bar Theme
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent,
         elevation: 0,
-        centerTitle: true,
+        scrolledUnderElevation: 0,
+        systemOverlayStyle: SystemUiOverlayStyle.light,
+        titleTextStyle: const TextStyle(
+          color: AppColors.accentWhite,
+          fontSize: 20,
+          fontWeight: FontWeight.w600,
+          fontFamily: 'Poppins',
+        ),
+        iconTheme: const IconThemeData(color: AppColors.accentWhite),
       ),
-      cardTheme: const CardThemeData(
-        color: Colors.white,
-        elevation: 4,
+
+      // Scaffold Theme
+      scaffoldBackgroundColor: AppColors.darkColorScheme.surface,
+
+      // Card Theme (Glassmorphism)
+      cardTheme: CardThemeData(
+        color: AppColors.glassDark,
+        elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(16)),
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: AppColors.glassBorderDark, width: 1),
         ),
       ),
+
+      // Elevated Button Theme
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          elevation: 0,
+          backgroundColor: AppColors.darkColorScheme.primary,
+          foregroundColor: AppColors.darkColorScheme.onPrimary,
+          elevation: 8,
+          shadowColor: AppColors.accentGold.withOpacity(0.4),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
           ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 12,
+          textStyle: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            fontFamily: 'Poppins',
           ),
         ),
       ),
-      outlinedButtonTheme: OutlinedButtonThemeData(
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.primary),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: 24,
-            vertical: 12,
-          ),
-        ),
-      ),
+
+      // Text Button Theme
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
+          foregroundColor: AppColors.accentGold,
+          textStyle: const TextStyle(
+            fontWeight: FontWeight.w500,
+            fontFamily: 'Poppins',
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
         ),
       ),
+
+      // Input Decoration Theme
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.grey[100],
+        fillColor: AppColors.glassDark,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppColors.glassBorderDark, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: AppColors.glassBorderDark, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.primary, width: 2),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: AppColors.darkColorScheme.primary,
+            width: 2,
+          ),
         ),
         errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.error, width: 2),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(
+            color: AppColors.darkColorScheme.error,
+            width: 1,
+          ),
+        ),
+        labelStyle: const TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w400,
+        ),
+        hintStyle: const TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w400,
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 16,
         ),
       ),
-      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
-        backgroundColor: Colors.white,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-      ),
-      dividerTheme: DividerThemeData(
-        color: Colors.grey[300],
-        thickness: 1,
-      ),
-      chipTheme: ChipThemeData(
-        backgroundColor: Colors.grey[200],
-        labelStyle: const TextStyle(color: Colors.black87),
-        selectedColor: AppColors.primary,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
+
+      // Text Theme
+      textTheme: const TextTheme(
+        displayLarge: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.bold,
+          color: AppColors.accentWhite,
+        ),
+        displayMedium: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.bold,
+          color: AppColors.accentWhite,
+        ),
+        displaySmall: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w600,
+          color: AppColors.accentWhite,
+        ),
+        headlineLarge: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.bold,
+          color: AppColors.accentWhite,
+        ),
+        headlineMedium: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w600,
+          color: AppColors.accentWhite,
+        ),
+        headlineSmall: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w600,
+          color: AppColors.accentWhite,
+        ),
+        titleLarge: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w600,
+          color: AppColors.accentWhite,
+        ),
+        titleMedium: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w500,
+          color: AppColors.accentWhite,
+        ),
+        titleSmall: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w500,
+          color: AppColors.accentWhite,
+        ),
+        bodyLarge: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w400,
+          color: AppColors.accentWhite,
+        ),
+        bodyMedium: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w400,
+          color: AppColors.accentWhite,
+        ),
+        bodySmall: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w400,
+          color: AppColors.accentWhite,
+        ),
+        labelLarge: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w500,
+          color: AppColors.accentWhite,
+        ),
+        labelMedium: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w500,
+          color: AppColors.accentWhite,
+        ),
+        labelSmall: TextStyle(
+          fontFamily: 'Poppins',
+          fontWeight: FontWeight.w500,
+          color: AppColors.accentWhite,
         ),
       ),
     );
