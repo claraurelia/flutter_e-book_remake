@@ -9,6 +9,8 @@ A modern, feature-rich ebook application built with Flutter. This app provides a
 
 > **Status**: 🚧 **In Development** - Version 2.0 with flat design system and enhanced features
 
+> **🔒 Security Notice**: This repository does NOT contain Firebase configuration files for security reasons. See [FIREBASE_SECURITY.md](FIREBASE_SECURITY.md) for setup instructions.
+
 ## 🎨 Design System
 
 ### **Flat Design Revolution**
@@ -213,14 +215,28 @@ lib/
    flutter pub get
    ```
 
-3. **Configure Firebase**
+3. **🔒 Configure Firebase (REQUIRED)**
+   - See [FIREBASE_SECURITY.md](FIREBASE_SECURITY.md) for detailed setup
    - Add your `google-services.json` to `android/app/`
-   - Update Firebase configuration in `lib/firebase_options.dart`
+   - Generate `lib/firebase_options.dart` using FlutterFire CLI
+   - **⚠️ NEVER commit these files to git!**
 
 4. **Run the app**
    ```bash
    flutter run
    ```
+
+### 🔒 Security Setup
+**IMPORTANT**: Before running the app, you MUST configure Firebase:
+
+1. **Read [FIREBASE_SECURITY.md](FIREBASE_SECURITY.md)** for complete setup instructions
+2. **Copy template files**:
+   ```bash
+   cp android/app/google-services.json.example android/app/google-services.json
+   cp lib/firebase_options.dart.example lib/firebase_options.dart
+   ```
+3. **Replace with your actual Firebase configuration**
+4. **Verify files are in .gitignore** (they already are)
 
 ### Test Accounts
 ```
