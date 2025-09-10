@@ -5,71 +5,88 @@
 [![Firebase](https://img.shields.io/badge/Firebase-039BE5?style=for-the-badge&logo=Firebase&logoColor=white)](https://firebase.google.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A modern, feature-rich ebook application built with Flutter. This app provides a seamless reading experience with dual user roles (Admin & User), dark theme UI, and comprehensive book management system.
+A modern, feature-rich ebook application built with Flutter. This app provides a seamless reading experience with dual user roles (Admin & User), flat design UI, and comprehensive book management system.
 
-> **Status**: 🚧 **In Development** - This is a demo version with mock authentication for testing purposes.
+> **Status**: 🚧 **In Development** - Version 2.0 with flat design system and enhanced features
+
+## 🎨 Design System
+
+### **Flat Design Revolution**
+- ✅ **Clean Flat Backgrounds**: No more gradient backgrounds, pure flat colors
+- ✅ **Modern Card System**: Consistent CardStyles utility across all components
+- ✅ **Shadow-Free Design**: Clean borders instead of dark shadows
+- ✅ **Dark/Light Mode**: Seamless theme switching with flat color scheme
+- ✅ **Consistent Spacing**: Unified design language throughout the app
 
 ## 🚀 Features
 
 ### 👤 User Features
-- � **Browse Books**: Explore a curated collection of ebooks
-- � **Search & Filter**: Find books by title, author, or category
-- ⭐ **Favorites**: Save books to your personal favorites list
-- 💎 **Premium Books**: Purchase and access premium content
-- 📱 **Download Books**: Offline reading capability
-- 🌙 **Dark Theme**: Eye-friendly dark mode interface
-- � **User Profile**: Manage account settings and preferences
+- ✅ **Browse Books**: Explore curated ebook collection with flat card design
+- ✅ **Search & Filter**: Advanced search with clean flat UI components
+- ✅ **Favorites**: Personal bookmarks with modern card styling
+- ✅ **Download Books**: Offline reading with PDF viewer integration
+- ✅ **Profile Management**: Clean profile interface with role-based features
+- ✅ **Theme Toggle**: Instant dark/light mode switching
 
-### 🔧 Admin Features
-- ➕ **Add Books**: Upload new ebooks to the collection
-- ✏️ **Edit Books**: Update book information and metadata
-- 🗑️ **Delete Books**: Remove books from the collection
-- 📊 **Dashboard**: View app statistics and user analytics
-- 👥 **User Management**: Monitor user activities and subscriptions
+### 🔧 Admin Features  
+- ✅ **Admin Dashboard**: Comprehensive management interface (accessible via profile menu)
+- ✅ **Book Management**: Add, edit, delete books with modern forms
+- ✅ **User Analytics**: Monitor user activities and book statistics
+- ✅ **Seed Data**: Quick test data generation for development
+- ✅ **Role-Based Access**: Secure admin-only features
 
 ### 🎨 UI/UX Features
-- 🌙 **Modern Dark Theme**: Sleek Material Design 3 interface
-- 📱 **Responsive Design**: Optimized for various screen sizes
-- � **Smooth Navigation**: Intuitive routing with GoRouter
-- ⚡ **Fast Loading**: Cached images and optimized performance
-- 🎯 **Role-based Access**: Different interfaces for Admin and User
+- ✅ **Flat Design System**: Modern, clean interface without shadows
+- ✅ **Responsive Navigation**: Bottom navigation with flat styling
+- ✅ **Smart Back Button**: Context-aware navigation (only shows when needed)
+- ✅ **Consistent Cards**: Unified card styling across all screens
+- ✅ **Clean Animations**: Smooth transitions without heavy effects
 
 ## 🛠️ Tech Stack
 
 - **Framework**: Flutter 3.x
 - **Language**: Dart
 - **Backend**: Firebase (Auth, Firestore, Storage)
-- **State Management**: Provider
-- **Navigation**: GoRouter
-- **UI**: Material Design 3
-- **Image Caching**: cached_network_image
-- **Loading Animations**: flutter_spinkit
+- **State Management**: Provider Pattern
+- **Navigation**: Custom Navigation with IndexedStack
+- **UI**: Custom Flat Design System
+- **PDF Reader**: flutter_pdfview
+- **Icons**: FontAwesome Flutter
+- **Image Handling**: Image Picker & Firebase Storage
 
-## 📦 Dependencies
+## 📦 Key Dependencies
 
 ```yaml
 dependencies:
   flutter:
     sdk: flutter
   
-  # Firebase
-  firebase_core: ^3.15.2
-  firebase_auth: ^5.7.0
-  cloud_firestore: ^5.6.12
-  firebase_storage: ^12.4.10
-  
-  # State Management & Navigation
+  # State Management
   provider: ^6.1.2
-  go_router: ^14.8.1
   
-  # UI & Utils
-  cached_network_image: ^3.4.1
-  flutter_spinkit: ^5.2.1
-  file_picker: ^8.3.7
-  permission_handler: ^11.4.0
+  # Firebase
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  cloud_firestore: ^5.4.3
+  firebase_storage: ^12.3.2
   
-  # Development
-  flutter_lints: ^5.0.0
+  # UI & Navigation
+  font_awesome_flutter: ^10.7.0
+  flutter_animate: ^4.5.0
+  
+  # PDF & File Handling
+  flutter_pdfview: ^1.3.2
+  file_picker: ^8.1.2
+  image_picker: ^1.1.2
+  
+  # Local Storage
+  sqflite: ^2.4.0
+  shared_preferences: ^2.3.2
+  path_provider: ^2.1.4
+  
+  # Utilities
+  permission_handler: ^11.3.1
+  url_launcher: ^6.3.1
 ```
 
 ## 🏗️ Project Structure
@@ -77,19 +94,65 @@ dependencies:
 ```
 lib/
 ├── core/
-│   ├── constants/
-│   │   ├── app_colors.dart
-│   │   └── app_strings.dart
 │   └── theme/
-│       └── app_theme.dart
+│       ├── app_colors.dart      # Flat color scheme
+│       ├── app_theme.dart       # Theme configuration
+│       ├── card_styles.dart     # Flat design utility
+│       └── backgrounds.dart     # Background utilities
 ├── models/
-│   ├── user_model.dart
-│   └── book_model.dart
-├── services/
-│   ├── auth_service.dart
-│   ├── book_service.dart
-│   └── mock_auth_service.dart
+│   ├── book_model.dart          # Book data model
+│   └── user_model.dart          # User data model
 ├── providers/
+│   ├── auth_provider.dart       # Authentication state
+│   ├── book_provider.dart       # Book management state
+│   └── theme_provider.dart      # Theme state management
+├── screens/
+│   ├── admin/                   # Admin-only screens
+│   ├── auth/                    # Login/Register screens
+│   ├── book/                    # Book detail & PDF reader
+│   ├── books/                   # Books library screen
+│   ├── home/                    # Home screen with flat design
+│   ├── profile/                 # Profile & settings screens
+│   └── main_wrapper.dart        # Main navigation wrapper
+├── services/
+│   ├── auth_service.dart        # Firebase authentication
+│   ├── book_service.dart        # Book CRUD operations
+│   └── image_service.dart       # Image upload handling
+└── widgets/
+    ├── premium_bottom_nav.dart  # Flat bottom navigation
+    ├── card_styles.dart         # Card styling utilities
+    └── glass_widgets.dart       # Legacy widgets (being phased out)
+```
+
+## ✅ Implementation Status
+
+### **Completed Features**
+- ✅ **Flat Design System**: Complete CardStyles utility implementation
+- ✅ **Home Screen**: Converted to flat design with modern cards
+- ✅ **Profile Screen**: Full conversion from glass to flat design
+- ✅ **Books Library**: Flat background and card styling
+- ✅ **Navigation**: Bottom nav with clean flat styling
+- ✅ **Theme System**: Dark/light mode with flat backgrounds
+- ✅ **Admin Dashboard**: Role-based admin menu integration
+- ✅ **PDF Reader**: Functional ebook reading capabilities
+- ✅ **Firebase Integration**: Authentication and data management
+- ✅ **Navigation Fix**: Smart back button logic for tab contexts
+
+### **In Progress**
+- 🔄 **Auth Screens**: Converting login/register to flat design
+- 🔄 **Book Detail**: Updating with flat card styling
+- 🔄 **PDF Reader UI**: Flat design for reading controls
+- 🔄 **Error Handling**: Enhanced user feedback systems
+
+### **Planned Features**
+- 📋 **Reading Progress**: Bookmark and progress tracking
+- 📋 **Book Reviews**: User rating and review system
+- 📋 **Premium Features**: Subscription and payment integration
+- 📋 **Offline Sync**: Enhanced offline reading capabilities
+- 📋 **Push Notifications**: Book recommendations and updates
+- 📋 **Social Features**: Book sharing and recommendations
+- 📋 **Advanced Search**: AI-powered book discovery
+- 📋 **Multi-language**: Internationalization support
 │   ├── auth_provider.dart
 │   ├── book_provider.dart
 │   └── mock_auth_provider.dart
@@ -104,28 +167,45 @@ lib/
 │   ├── profile/
 │   │   └── profile_screen.dart
 │   └── admin/
-│       └── admin_dashboard_screen.dart
-├── widgets/
-│   └── common/
-│       └── loading_widget.dart
-└── main.dart
-```
+## 🚀 Next Steps
 
-## 🚀 Getting Started
+### **Phase 1: Design Completion** (Current Priority)
+1. **Convert remaining GlassContainer widgets** in auth screens and PDF reader
+2. **Standardize color scheme** across all components
+3. **Optimize card shadows** and borders for consistent flat look
+4. **Polish navigation animations** and transitions
+
+### **Phase 2: Feature Enhancement**
+1. **Implement reading progress tracking** with local storage
+2. **Add book review and rating system** with Firestore
+3. **Create comprehensive search filters** (author, category, rating)
+4. **Develop premium subscription model** with payment integration
+
+### **Phase 3: Performance & Polish**
+1. **Optimize image loading** and caching strategies
+2. **Implement offline-first architecture** for better UX
+3. **Add comprehensive error handling** and user feedback
+4. **Performance testing** and optimization
+
+### **Phase 4: Advanced Features**
+1. **AI-powered book recommendations** based on reading history
+2. **Social features** for book sharing and discussions
+3. **Multi-device sync** for reading progress and bookmarks
+4. **Advanced analytics dashboard** for admin users
+
+## � Getting Started
 
 ### Prerequisites
-
-- Flutter SDK (>=3.0.0)
-- Dart SDK (>=3.0.0)
+- Flutter SDK (latest stable version)
+- Firebase project setup
 - Android Studio / VS Code
-- Firebase Project (for production)
+- Git
 
 ### Installation
-
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/flutter-ebook-app.git
-   cd flutter-ebook-app
+   git clone https://github.com/IlhamWidi/Ebook-Flutter.git
+   cd Ebook-Flutter
    ```
 
 2. **Install dependencies**
@@ -133,8 +213,66 @@ lib/
    flutter pub get
    ```
 
-3. **Run the app (Development Mode)**
+3. **Configure Firebase**
+   - Add your `google-services.json` to `android/app/`
+   - Update Firebase configuration in `lib/firebase_options.dart`
+
+4. **Run the app**
    ```bash
+   flutter run
+   ```
+
+### Test Accounts
+```
+Admin Account:
+Email: admin@test.com
+Password: admin123
+
+User Account:  
+Email: user@test.com
+Password: user123
+```
+
+## 📱 Screenshots
+
+### Flat Design System
+- **Clean Cards**: No shadows, subtle borders
+- **Flat Backgrounds**: Consistent dark/light backgrounds
+- **Modern Typography**: Clean, readable fonts
+- **Consistent Spacing**: Unified layout principles
+
+### Dark Mode Support
+- **True Dark Mode**: Deep dark backgrounds
+- **Proper Contrast**: Optimized text and element visibility
+- **Flat Card Design**: Dark cards with subtle borders
+- **Consistent Theme**: Unified dark/light experience
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+### Development Priorities
+1. **Flat Design Completion**: Help convert remaining components
+2. **Feature Implementation**: Work on planned features
+3. **Bug Fixes**: Improve stability and performance
+4. **Documentation**: Enhance code documentation and guides
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- **Flutter Team** for the amazing framework
+- **Firebase** for backend infrastructure
+- **FontAwesome** for beautiful icons
+- **Community** for inspiration and feedback
+
+---
+
+**Built with ❤️ using Flutter**
+
+> **Note**: This is an educational project showcasing modern Flutter development with flat design principles, Firebase integration, and role-based authentication.
    flutter run
    ```
 
