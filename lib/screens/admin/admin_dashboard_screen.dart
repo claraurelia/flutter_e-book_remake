@@ -133,13 +133,13 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       'Add Book',
                       Icons.add_circle,
                       AppColors.primary,
-                      () => _showAddBookDialog(),
+                      () => context.push('/admin/add-book'),
                     ),
                     _buildActionCard(
                       'Manage Books',
                       Icons.edit,
                       AppColors.info,
-                      () => _showManageBooksDialog(),
+                      () => context.push('/admin/manage-books'),
                     ),
                     _buildActionCard(
                       'Categories',
@@ -148,10 +148,35 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       () => _showCategoriesDialog(),
                     ),
                     _buildActionCard(
+                      'Seed Data',
+                      Icons.dataset,
+                      AppColors.secondary,
+                      () => context.push('/admin/seed-data'),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                GridView.count(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  children: [
+                    _buildActionCard(
                       'Analytics',
                       Icons.analytics,
                       AppColors.warning,
                       () => _showAnalyticsDialog(),
+                    ),
+                    _buildActionCard(
+                      'Settings',
+                      Icons.settings,
+                      AppColors.textSecondary,
+                      () =>
+                          _showAnalyticsDialog(), // Using existing method for now
                     ),
                   ],
                 ),
@@ -203,7 +228,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -235,7 +265,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  Widget _buildActionCard(String title, IconData icon, Color color, VoidCallback onTap) {
+  Widget _buildActionCard(
+    String title,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -305,52 +340,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     );
   }
 
-  void _showAddBookDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text(
-          'Add Book',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'Add book functionality will be implemented here.',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showManageBooksDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text(
-          'Manage Books',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'Book management functionality will be implemented here.',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showCategoriesDialog() {
     showDialog(
       context: context,
@@ -379,10 +368,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: AppColors.surface,
-        title: const Text(
-          'Analytics',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: const Text('Analytics', style: TextStyle(color: Colors.white)),
         content: const Text(
           'Analytics functionality will be implemented here.',
           style: TextStyle(color: AppColors.textSecondary),
