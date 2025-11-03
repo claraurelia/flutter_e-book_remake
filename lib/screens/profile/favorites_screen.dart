@@ -281,55 +281,24 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        if (!book.isFree) ...[
-                          Text(
-                            '\$${book.price.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                              fontSize: 14,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.success,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text(
+                            'FREE',
+                            style: TextStyle(
+                              fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: AppColors.warning,
+                              color: Colors.white,
                             ),
                           ),
-                          const SizedBox(width: 8),
-                        ],
-                        if (book.isFree)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.success,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Text(
-                              'FREE',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        if (book.isPremium)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppColors.warning,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Text(
-                              'PREMIUM',
-                              style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
+                        ),
                       ],
                     ),
                   ],

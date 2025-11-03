@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/book_provider.dart';
 import '../../models/book_model.dart';
-import '../../core/constants/app_colors.dart';
 import '../../widgets/common/loading_widget.dart';
 
 class ManageBooksScreen extends StatefulWidget {
@@ -51,7 +50,7 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error loading books: $e'),
-            backgroundColor: AppColors.error,
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }
@@ -76,14 +75,18 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
   }
 
   Future<void> _deleteBook(BookModel book) async {
+    final theme = Theme.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Delete Book', style: TextStyle(color: Colors.white)),
+        backgroundColor: theme.colorScheme.surface,
+        title: Text(
+          'Delete Book',
+          style: TextStyle(color: theme.colorScheme.onSurface),
+        ),
         content: Text(
           'Are you sure you want to delete "${book.title}"? This action cannot be undone.',
-          style: const TextStyle(color: AppColors.textSecondary),
+          style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7)),
         ),
         actions: [
           TextButton(
@@ -92,7 +95,9 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            style: TextButton.styleFrom(
+              foregroundColor: theme.colorScheme.error,
+            ),
             child: const Text('Delete'),
           ),
         ],
@@ -111,9 +116,9 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text('Book deleted successfully'),
-              backgroundColor: AppColors.success,
+              backgroundColor: Theme.of(context).colorScheme.primary,
             ),
           );
         }
@@ -122,7 +127,7 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Error deleting book: $e'),
-              backgroundColor: AppColors.error,
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
         }
@@ -132,11 +137,14 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.colorScheme.background,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: theme.colorScheme.surface,
         title: const Text('Manage Books'),
+        foregroundColor: theme.colorScheme.onSurface,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -175,15 +183,15 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
             child: _isLoading
                 ? const Center(child: LoadingWidget())
                 : _filteredBooks.isEmpty
-                ? _buildEmptyState()
-                : _buildBooksList(),
+                ? _buildEmptyState(theme)
+                : _buildBooksList(theme),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(ThemeData theme) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -193,17 +201,17 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
                 ? Icons.search_off
                 : Icons.library_books,
             size: 64,
-            color: AppColors.textSecondary,
+            color: theme.colorScheme.onSurface.withOpacity(0.6),
           ),
           const SizedBox(height: 16),
           Text(
             _searchController.text.isNotEmpty
                 ? 'No books found'
                 : 'No books yet',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: theme.colorScheme.onSurface,
             ),
           ),
           const SizedBox(height: 8),
@@ -211,9 +219,9 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
             _searchController.text.isNotEmpty
                 ? 'Try different search terms'
                 : 'Start by adding some books!',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
-              color: AppColors.textSecondary,
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
             ),
             textAlign: TextAlign.center,
           ),
@@ -229,26 +237,28 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
     );
   }
 
-  Widget _buildBooksList() {
+  Widget _buildBooksList(ThemeData theme) {
     return RefreshIndicator(
       onRefresh: _loadBooks,
-      backgroundColor: AppColors.surface,
-      color: AppColors.primary,
+      backgroundColor: theme.colorScheme.surface,
+      color: theme.colorScheme.primary,
       child: ListView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 16.0),
         itemCount: _filteredBooks.length,
         itemBuilder: (context, index) {
           final book = _filteredBooks[index];
-          return _buildBookCard(book);
+          return _buildBookCard(book, theme);
         },
       ),
     );
   }
 
-  Widget _buildBookCard(BookModel book) {
+  Widget _buildBookCard(BookModel book, ThemeData theme) {
     return Card(
-      color: AppColors.surface,
+      color: theme.colorScheme.surface,
       margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 0,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Row(
@@ -265,16 +275,19 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
                 placeholder: (context, url) => Container(
                   width: 60,
                   height: 80,
-                  color: AppColors.surfaceVariant,
-                  child: const Icon(Icons.book, color: AppColors.textSecondary),
+                  color: theme.colorScheme.surfaceVariant,
+                  child: Icon(
+                    Icons.book,
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                  ),
                 ),
                 errorWidget: (context, url, error) => Container(
                   width: 60,
                   height: 80,
-                  color: AppColors.surfaceVariant,
-                  child: const Icon(
+                  color: theme.colorScheme.surfaceVariant,
+                  child: Icon(
                     Icons.broken_image,
-                    color: AppColors.textSecondary,
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
                   ),
                 ),
               ),
@@ -289,10 +302,10 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
                 children: [
                   Text(
                     book.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: theme.colorScheme.onSurface,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -300,9 +313,9 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
                   const SizedBox(height: 4),
                   Text(
                     'by ${book.author}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 14,
-                      color: AppColors.textSecondary,
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -310,63 +323,31 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
                     book.category,
                     style: TextStyle(
                       fontSize: 12,
-                      color: AppColors.primary,
+                      color: theme.colorScheme.primary,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      if (!book.isFree) ...[
-                        Text(
-                          '\$${book.price.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            fontSize: 14,
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.primary,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'FREE',
+                          style: TextStyle(
+                            fontSize: 10,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.warning,
+                            color: theme.colorScheme.onPrimary,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                      ],
-                      if (book.isFree)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.success,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'FREE',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
-                      if (book.isPremium)
-                        Container(
-                          margin: const EdgeInsets.only(left: 4),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.warning,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'PREMIUM',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -375,28 +356,28 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
                       Icon(
                         Icons.download,
                         size: 16,
-                        color: AppColors.textSecondary,
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '${book.downloadCount}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textSecondary,
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
                         ),
                       ),
                       const SizedBox(width: 16),
                       Icon(
                         Icons.favorite,
                         size: 16,
-                        color: AppColors.textSecondary,
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '${book.favoriteCount}',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: AppColors.textSecondary,
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
                         ),
                       ),
                     ],
@@ -410,19 +391,13 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
               children: [
                 IconButton(
                   onPressed: () {
-                    // TODO: Navigate to edit book screen
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Edit functionality coming soon!'),
-                        backgroundColor: AppColors.info,
-                      ),
-                    );
+                    context.push('/admin/add-book', extra: book);
                   },
-                  icon: const Icon(Icons.edit, color: AppColors.info),
+                  icon: Icon(Icons.edit, color: theme.colorScheme.primary),
                 ),
                 IconButton(
                   onPressed: () => _deleteBook(book),
-                  icon: const Icon(Icons.delete, color: AppColors.error),
+                  icon: Icon(Icons.delete, color: theme.colorScheme.error),
                 ),
               ],
             ),

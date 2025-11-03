@@ -3,7 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/book_provider.dart';
-import '../../core/constants/app_colors.dart';
+import '../../core/theme/card_styles.dart';
+import '../../services/user_management_service.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key});
@@ -13,24 +14,33 @@ class AdminDashboardScreen extends StatefulWidget {
 }
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  final UserManagementService _userService = UserManagementService();
+  Map<String, int> _userStats = {};
+
   @override
   void initState() {
     super.initState();
-    // Check if user is admin
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authProvider = Provider.of<AuthProvider>(context, listen: false);
-      if (!authProvider.isAdmin) {
-        context.go('/home');
-      }
-    });
+    _loadUserStats();
+  }
+
+  Future<void> _loadUserStats() async {
+    final stats = await _userService.getUserStatistics();
+    if (mounted) {
+      setState(() {
+        _userStats = stats;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: AppColors.surface,
+        backgroundColor: theme.appBarTheme.backgroundColor,
         title: const Text('Admin Dashboard'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -40,186 +50,117 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       body: Consumer<AuthProvider>(
         builder: (context, authProvider, child) {
           if (!authProvider.isAdmin) {
-            return const Center(
-              child: Text(
-                'Access Denied',
-                style: TextStyle(color: Colors.white),
-              ),
-            );
+            return const Center(child: Text('Access Denied'));
           }
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Welcome Message
-                Text(
-                  'Welcome, ${authProvider.currentUser?.name ?? 'Admin'}!',
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Manage your ebook library',
-                  style: TextStyle(
-                    fontSize: 16,
-                    color: AppColors.textSecondary,
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: CardStyles.modernCard(isDark),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Welcome back, ${authProvider.currentUser?.name ?? 'Admin'}!',
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Manage your ebook library and users',
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: theme.textTheme.bodySmall?.color,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
 
                 // Stats Cards
                 Consumer<BookProvider>(
                   builder: (context, bookProvider, child) {
-                    return Row(
+                    return GridView.count(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: 1.6,
                       children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            'Total Books',
-                            bookProvider.books.length.toString(),
-                            Icons.library_books,
-                            AppColors.primary,
-                          ),
+                        _buildStatCard(
+                          'Total Books',
+                          bookProvider.books.length.toString(),
+                          Icons.library_books,
+                          theme.primaryColor,
+                          isDark,
                         ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildStatCard(
-                            'Featured',
-                            bookProvider.featuredBooks.length.toString(),
-                            Icons.star,
-                            AppColors.warning,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: _buildStatCard(
-                            'Categories',
-                            bookProvider.categories.length.toString(),
-                            Icons.category,
-                            AppColors.success,
-                          ),
+                        _buildStatCard(
+                          'Total Users',
+                          _userStats['total']?.toString() ?? '0',
+                          Icons.people,
+                          Colors.blue[600]!,
+                          isDark,
                         ),
                       ],
                     );
                   },
                 ),
 
-                const SizedBox(height: 32),
+                const SizedBox(height: 24),
 
-                // Quick Actions
-                const Text(
-                  'Quick Actions',
-                  style: TextStyle(
-                    fontSize: 20,
+                // Management Section
+                Text(
+                  'Management',
+                  style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
 
                 GridView.count(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
+                  crossAxisCount: 1,
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
+                  childAspectRatio: 3.5,
                   children: [
                     _buildActionCard(
                       'Add Book',
-                      Icons.add_circle,
-                      AppColors.primary,
+                      'Create new book',
+                      Icons.add_circle_outline,
+                      theme.primaryColor,
                       () => context.push('/admin/add-book'),
+                      isDark,
                     ),
                     _buildActionCard(
                       'Manage Books',
-                      Icons.edit,
-                      AppColors.info,
+                      'Edit existing books',
+                      Icons.edit_outlined,
+                      Colors.orange[600]!,
                       () => context.push('/admin/manage-books'),
+                      isDark,
                     ),
                     _buildActionCard(
-                      'Categories',
-                      Icons.category,
-                      AppColors.success,
-                      () => _showCategoriesDialog(),
-                    ),
-                    _buildActionCard(
-                      'Seed Data',
-                      Icons.dataset,
-                      AppColors.secondary,
-                      () => context.push('/admin/seed-data'),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 16),
-
-                GridView.count(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
-                  children: [
-                    _buildActionCard(
-                      'Analytics',
-                      Icons.analytics,
-                      AppColors.warning,
-                      () => _showAnalyticsDialog(),
-                    ),
-                    _buildActionCard(
-                      'Settings',
-                      Icons.settings,
-                      AppColors.textSecondary,
-                      () =>
-                          _showAnalyticsDialog(), // Using existing method for now
+                      'Manage Users',
+                      'User roles & permissions',
+                      Icons.people_outline,
+                      Colors.blue[600]!,
+                      () => context.push('/admin/manage-users'),
+                      isDark,
                     ),
                   ],
                 ),
 
                 const SizedBox(height: 32),
-
-                // Recent Activity
-                const Text(
-                  'Recent Activity',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    children: [
-                      _buildActivityItem(
-                        'New book added: "Sample Book"',
-                        '2 hours ago',
-                        Icons.add,
-                      ),
-                      _buildActivityItem(
-                        'Book updated: "Another Book"',
-                        '5 hours ago',
-                        Icons.edit,
-                      ),
-                      _buildActivityItem(
-                        'Category created: "Science"',
-                        '1 day ago',
-                        Icons.category,
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           );
@@ -233,32 +174,40 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     String value,
     IconData icon,
     Color color,
+    bool isDark,
   ) {
+    final theme = Theme.of(context);
+
     return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      padding: const EdgeInsets.all(12),
+      decoration: CardStyles.modernCard(isDark),
       child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 32),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 6),
+          Flexible(
+            child: Text(
+              value,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary,
+          const SizedBox(height: 2),
+          Flexible(
+            child: Text(
+              title,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.textTheme.bodySmall?.color,
+              ),
+              textAlign: TextAlign.center,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 2,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -267,118 +216,61 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 
   Widget _buildActionCard(
     String title,
+    String subtitle,
     IconData icon,
     Color color,
     VoidCallback onTap,
+    bool isDark,
   ) {
+    final theme = Theme.of(context);
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.surface,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
+        decoration: CardStyles.modernCard(isDark).copyWith(
+          border: Border.all(color: color.withOpacity(0.2), width: 1.5),
         ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Row(
           children: [
-            Icon(icon, color: color, size: 40),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
               ),
-              textAlign: TextAlign.center,
+              child: Icon(icon, color: color, size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.textTheme.bodySmall?.color,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.arrow_forward_ios,
+              color: color.withOpacity(0.6),
+              size: 16,
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildActivityItem(String title, String time, IconData icon) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: AppColors.primary, size: 16),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Text(
-                  time,
-                  style: const TextStyle(
-                    color: AppColors.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showCategoriesDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text(
-          'Manage Categories',
-          style: TextStyle(color: Colors.white),
-        ),
-        content: const Text(
-          'Category management functionality will be implemented here.',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showAnalyticsDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surface,
-        title: const Text('Analytics', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          'Analytics functionality will be implemented here.',
-          style: TextStyle(color: AppColors.textSecondary),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
   }

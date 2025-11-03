@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/book_provider.dart';
+import '../../providers/favorite_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/card_styles.dart';
 import '../../models/book_model.dart';
@@ -46,6 +47,14 @@ class _BooksLibraryScreenState extends State<BooksLibraryScreen>
     _searchAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _searchController, curve: Curves.easeInOut),
     );
+
+    // Load books when screen initializes (only if not already loaded)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final bookProvider = Provider.of<BookProvider>(context, listen: false);
+      if (bookProvider.books.isEmpty && !bookProvider.isLoading) {
+        bookProvider.loadBooks(refresh: true);
+      }
+    });
   }
 
   @override
@@ -63,20 +72,25 @@ class _BooksLibraryScreenState extends State<BooksLibraryScreen>
 
     return Scaffold(
       backgroundColor: CardStyles.flatBackground(isDark),
-      body: CustomScrollView(
-        slivers: [
-          // App Bar
-          _buildSliverAppBar(isDark),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await bookProvider.loadBooks(refresh: true);
+        },
+        child: CustomScrollView(
+          slivers: [
+            // App Bar
+            _buildSliverAppBar(isDark),
 
-          // Search Bar
-          SliverToBoxAdapter(child: _buildSearchSection(isDark)),
+            // Search Bar
+            SliverToBoxAdapter(child: _buildSearchSection(isDark)),
 
-          // Category Filter
-          SliverToBoxAdapter(child: _buildCategoryFilter(isDark)),
+            // Category Filter
+            SliverToBoxAdapter(child: _buildCategoryFilter(isDark)),
 
-          // Books Grid
-          _buildBooksGrid(bookProvider, isDark),
-        ],
+            // Books Grid
+            _buildBooksGrid(bookProvider, isDark),
+          ],
+        ),
       ),
     );
   }
@@ -268,6 +282,31 @@ class _BooksLibraryScreenState extends State<BooksLibraryScreen>
   }
 
   Widget _buildBooksGrid(BookProvider bookProvider, bool isDark) {
+    // Show loading when books are being fetched
+    if (bookProvider.isLoading && bookProvider.books.isEmpty) {
+      return SliverFillRemaining(
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                color: isDark ? AppColors.accentWhite : AppColors.primaryBlack,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Loading books...',
+                style: TextStyle(
+                  color: isDark
+                      ? AppColors.accentWhite.withOpacity(0.7)
+                      : AppColors.primaryBlack.withOpacity(0.7),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     // Filter books based on category and search
     final filteredBooks = bookProvider.books.where((book) {
       final matchesCategory =
@@ -280,7 +319,7 @@ class _BooksLibraryScreenState extends State<BooksLibraryScreen>
       return matchesCategory && matchesSearch;
     }).toList();
 
-    if (filteredBooks.isEmpty) {
+    if (filteredBooks.isEmpty && !bookProvider.isLoading) {
       return SliverFillRemaining(child: _buildEmptyState(isDark));
     }
 
@@ -310,6 +349,10 @@ class _BooksLibraryScreenState extends State<BooksLibraryScreen>
   Widget _buildBookCard(BookModel book, bool isDark) {
     return GestureDetector(
       onTap: () {
+        // Increment view count when book is opened
+        final bookProvider = Provider.of<BookProvider>(context, listen: false);
+        bookProvider.incrementViewCount(book.id);
+
         // Navigate to PDF reader for direct reading
         Navigator.push(
           context,
@@ -325,26 +368,74 @@ class _BooksLibraryScreenState extends State<BooksLibraryScreen>
             // Book Cover
             Expanded(
               flex: 4,
-              child: Container(
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(8),
-                  color: isDark
-                      ? AppColors.primaryBlack.withOpacity(0.3)
-                      : AppColors.accentWhite.withOpacity(0.7),
-                ),
-                child: book.coverImageUrl.isNotEmpty
-                    ? ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          book.coverImageUrl,
-                          fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) {
-                            return _buildPlaceholderCover(isDark);
+              child: Stack(
+                children: [
+                  Container(
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      color: isDark
+                          ? AppColors.primaryBlack.withOpacity(0.3)
+                          : AppColors.accentWhite.withOpacity(0.7),
+                    ),
+                    child: book.coverImageUrl.isNotEmpty
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.network(
+                              book.coverImageUrl,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return _buildPlaceholderCover(isDark);
+                              },
+                            ),
+                          )
+                        : _buildPlaceholderCover(isDark),
+                  ),
+                  // Favorite Button
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Consumer<FavoriteProvider>(
+                      builder: (context, favoriteProvider, child) {
+                        final isFavorite = favoriteProvider.isFavorite(book.id);
+                        return GestureDetector(
+                          onTap: () {
+                            favoriteProvider.toggleFavorite(book.id);
                           },
-                        ),
-                      )
-                    : _buildPlaceholderCover(isDark),
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppColors.primaryBlack.withOpacity(0.7)
+                                  : AppColors.accentWhite.withOpacity(0.9),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.2),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Icon(
+                              isFavorite
+                                  ? FontAwesomeIcons.solidHeart
+                                  : FontAwesomeIcons.heart,
+                              size: 14,
+                              color: isFavorite
+                                  ? Colors.red
+                                  : (isDark
+                                        ? AppColors.accentWhite.withOpacity(0.7)
+                                        : AppColors.primaryBlack.withOpacity(
+                                            0.6,
+                                          )),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
 
@@ -386,13 +477,13 @@ class _BooksLibraryScreenState extends State<BooksLibraryScreen>
                   Row(
                     children: [
                       Icon(
-                        FontAwesomeIcons.solidStar,
+                        FontAwesomeIcons.eye,
                         size: 12,
                         color: AppColors.accentGold,
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        book.rating.toStringAsFixed(1),
+                        '${book.viewCount}',
                         style: TextStyle(
                           fontSize: 12,
                           color: AppColors.accentGold,
@@ -400,15 +491,6 @@ class _BooksLibraryScreenState extends State<BooksLibraryScreen>
                         ),
                       ),
                       const Spacer(),
-                      Text(
-                        '${book.downloadCount}+ reads',
-                        style: TextStyle(
-                          fontSize: 10,
-                          color: isDark
-                              ? AppColors.accentWhite.withOpacity(0.5)
-                              : AppColors.primaryBlack.withOpacity(0.5),
-                        ),
-                      ),
                     ],
                   ),
                 ],

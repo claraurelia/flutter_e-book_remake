@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:async';
 import '../../providers/theme_provider.dart';
+import '../../providers/book_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/card_styles.dart';
+import '../../models/book_model.dart';
+import '../book/pdf_reader_screen.dart';
 
 class PremiumHomeScreen extends StatefulWidget {
   const PremiumHomeScreen({super.key});
@@ -23,37 +25,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   int _currentPage = 0;
   Timer? _autoSlideTimer;
   bool _userInteracting = false;
-
-  // Dummy featured books data
-  final List<Map<String, String>> _featuredBooks = [
-    {
-      'title': 'The Digital Revolution',
-      'author': 'Alex Thompson',
-      'description':
-          'Explore how technology is reshaping our world with insights into AI, blockchain, and the future of digital innovation.',
-      'image': 'https://picsum.photos/400/600?random=1',
-      'genre': 'Technology',
-      'rating': '4.8',
-    },
-    {
-      'title': 'Mindful Leadership',
-      'author': 'Sarah Chen',
-      'description':
-          'Discover the power of mindful leadership in modern business environments and learn to lead with purpose and clarity.',
-      'image': 'https://picsum.photos/400/600?random=2',
-      'genre': 'Business',
-      'rating': '4.6',
-    },
-    {
-      'title': 'Quantum Dreams',
-      'author': 'Dr. Michael Harris',
-      'description':
-          'A fascinating journey through quantum physics and its implications for the future of science and technology.',
-      'image': 'https://picsum.photos/400/600?random=3',
-      'genre': 'Science',
-      'rating': '4.9',
-    },
-  ];
+  List<BookModel> _heroBooks = []; // Fixed hero books state
 
   @override
   void initState() {
@@ -76,10 +48,16 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
       _cardController.forward();
     });
 
+    // Load real data from database
+    _loadBookData();
+
     // Auto-slide functionality
     _autoSlideTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (_pageController.hasClients && mounted && !_userInteracting) {
-        int nextPage = (_currentPage + 1) % _featuredBooks.length;
+      if (_pageController.hasClients &&
+          mounted &&
+          !_userInteracting &&
+          _heroBooks.isNotEmpty) {
+        int nextPage = (_currentPage + 1) % _heroBooks.length;
         _pageController.animateToPage(
           nextPage,
           duration: const Duration(milliseconds: 400),
@@ -87,6 +65,32 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
         );
       }
     });
+  }
+
+  void _loadBookData() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final bookProvider = Provider.of<BookProvider>(context, listen: false);
+      // Only load if data is empty to prevent duplicates
+      if (bookProvider.books.isEmpty) {
+        bookProvider.loadBooks(refresh: true);
+      }
+    });
+  }
+
+  void _initializeHeroBooks(List<BookModel> allBooks) {
+    if (allBooks.isNotEmpty && _heroBooks.isEmpty) {
+      // Determine hero books count based on total books available
+      // If we have <= 3 books, use only 1 for hero to leave others for top books
+      // If we have > 3 books, use up to 3 for hero section
+      final heroCount = allBooks.length <= 3 ? 1 : 3;
+
+      final shuffledBooks = List<BookModel>.from(allBooks)..shuffle();
+      setState(() {
+        _heroBooks = shuffledBooks.take(heroCount).toList();
+      });
+      // Start auto-slide timer after hero books are initialized
+      _resetAutoSlideTimer();
+    }
   }
 
   @override
@@ -101,8 +105,11 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   void _resetAutoSlideTimer() {
     _autoSlideTimer?.cancel();
     _autoSlideTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (_pageController.hasClients && mounted && !_userInteracting) {
-        int nextPage = (_currentPage + 1) % _featuredBooks.length;
+      if (_pageController.hasClients &&
+          mounted &&
+          !_userInteracting &&
+          _heroBooks.isNotEmpty) {
+        int nextPage = (_currentPage + 1) % _heroBooks.length;
         _pageController.animateToPage(
           nextPage,
           duration: const Duration(milliseconds: 400),
@@ -112,59 +119,91 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     });
   }
 
+  Future<void> _refreshData(BookProvider bookProvider) async {
+    try {
+      // Reset hero books to allow fresh data
+      setState(() {
+        _heroBooks.clear();
+      });
+
+      // Reload all book data
+      await bookProvider.loadBooks(refresh: true);
+
+      // Reinitialize hero books with fresh data
+      if (bookProvider.books.isNotEmpty) {
+        _initializeHeroBooks(bookProvider.books);
+      }
+    } catch (e) {
+      // Handle error if needed
+      debugPrint('Error refreshing data: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final isDark = themeProvider.isDarkMode;
 
     return Scaffold(
-      body: Stack(
-        children: [
-          // Background
-          _buildBackground(isDark),
+      body: Consumer<BookProvider>(
+        builder: (context, bookProvider, child) {
+          // Initialize hero books when data is available
+          if (bookProvider.books.isNotEmpty && _heroBooks.isEmpty) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _initializeHeroBooks(bookProvider.books);
+            });
+          }
 
-          // Main Content
-          SafeArea(
-            child: SingleChildScrollView(
-              child: Column(
-                children: [
-                  // Header Section
-                  _buildHeader(isDark)
-                      .animate()
-                      .fadeIn(duration: 1000.ms)
-                      .slideY(begin: -0.2, duration: 800.ms),
+          return Stack(
+            children: [
+              // Background
+              _buildBackground(isDark),
 
-                  const SizedBox(height: 30),
+              // Main Content
+              SafeArea(
+                child: RefreshIndicator(
+                  onRefresh: () async {
+                    await _refreshData(bookProvider);
+                  },
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(
+                      children: [
+                        // Header Section
+                        _buildHeader(isDark)
+                            .animate()
+                            .fadeIn(duration: 1000.ms)
+                            .slideY(begin: -0.2, duration: 800.ms),
 
-                  // Hero Section
-                  _buildHeroSection(isDark)
-                      .animate()
-                      .fadeIn(duration: 1200.ms, delay: 300.ms)
-                      .slideY(begin: 0.3, duration: 1000.ms)
-                      .scale(begin: const Offset(0.9, 0.9), duration: 800.ms),
+                        const SizedBox(height: 30),
 
-                  const SizedBox(height: 40),
+                        // Hero Section - Real Data
+                        _buildHeroSection(isDark, bookProvider)
+                            .animate()
+                            .fadeIn(duration: 1200.ms, delay: 300.ms)
+                            .slideY(begin: 0.3, duration: 1000.ms)
+                            .scale(
+                              begin: const Offset(0.9, 0.9),
+                              duration: 800.ms,
+                            ),
 
-                  // Features Section
-                  _buildFeaturesSection(isDark)
-                      .animate()
-                      .fadeIn(duration: 1000.ms, delay: 600.ms)
-                      .slideY(begin: 0.3, duration: 800.ms),
+                        const SizedBox(height: 40),
 
-                  const SizedBox(height: 40),
+                        // Top Books Section - Real Data
+                        _buildTopBooksSection(isDark, bookProvider)
+                            .animate()
+                            .fadeIn(duration: 1000.ms, delay: 1200.ms)
+                            .slideY(begin: 0.3, duration: 800.ms),
 
-                  // Stats Section
-                  _buildStatsSection(isDark)
-                      .animate()
-                      .fadeIn(duration: 800.ms, delay: 900.ms)
-                      .scale(begin: const Offset(0.8, 0.8), duration: 600.ms),
-
-                  const SizedBox(height: 40),
-                ],
+                        const SizedBox(height: 60),
+                      ],
+                    ),
+                  ),
+                ),
               ),
-            ),
-          ),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -187,42 +226,99 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
               Text(
                 'EBOOK',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
                   color: isDark
                       ? AppColors.accentWhite
                       : AppColors.primaryBlack,
                   letterSpacing: 2,
                 ),
-              ),
+              ).animate().fadeIn(duration: 800.ms).slideX(begin: -0.5),
+              const SizedBox(height: 4),
               Text(
-                'PREMIUM',
+                'Discover amazing stories',
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w300,
-                  color: AppColors.accentGold,
-                  letterSpacing: 4,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  color: isDark
+                      ? AppColors.accentWhite.withOpacity(0.7)
+                      : AppColors.primaryBlack.withOpacity(0.7),
                 ),
-              ),
+              ).animate(delay: 200.ms).fadeIn(duration: 600.ms),
             ],
           ),
-
-          // Profile Avatar
           Container(
-            padding: const EdgeInsets.all(8),
-            decoration: CardStyles.smallCard(isDark),
-            child: Icon(
-              FontAwesomeIcons.user,
-              color: isDark ? AppColors.accentWhite : AppColors.primaryBlack,
-              size: 20,
-            ),
-          ),
+                width: 48,
+                height: 48,
+                decoration: CardStyles.modernCard(isDark),
+                child: Icon(
+                  FontAwesomeIcons.bell,
+                  color: isDark
+                      ? AppColors.accentWhite
+                      : AppColors.primaryBlack,
+                  size: 20,
+                ),
+              )
+              .animate(delay: 400.ms)
+              .scale(begin: const Offset(0.5, 0.5), duration: 600.ms)
+              .then()
+              .shimmer(duration: 2000.ms),
         ],
       ),
     );
   }
 
-  Widget _buildHeroSection(bool isDark) {
+  Widget _buildHeroSection(bool isDark, BookProvider bookProvider) {
+    if (_heroBooks.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        child: Container(
+          height: 380,
+          decoration: CardStyles.modernCard(isDark),
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                if (bookProvider.isLoading) ...[
+                  CircularProgressIndicator(
+                    color: isDark
+                        ? AppColors.accentWhite
+                        : AppColors.primaryBlack,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Loading books...',
+                    style: TextStyle(
+                      color: isDark
+                          ? AppColors.accentWhite.withOpacity(0.7)
+                          : AppColors.primaryBlack.withOpacity(0.7),
+                    ),
+                  ),
+                ] else ...[
+                  Icon(
+                    Icons.book_outlined,
+                    size: 64,
+                    color: isDark
+                        ? AppColors.accentWhite.withOpacity(0.5)
+                        : AppColors.primaryBlack.withOpacity(0.5),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No books available',
+                    style: TextStyle(
+                      color: isDark
+                          ? AppColors.accentWhite.withOpacity(0.7)
+                          : AppColors.primaryBlack.withOpacity(0.7),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: Column(
@@ -230,17 +326,14 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           // Featured Books Slider
           AnimatedContainer(
             duration: const Duration(milliseconds: 300),
-            height: 380, // Increased height to accommodate button
+            height: 380,
             decoration: CardStyles.modernCard(isDark),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(
-                16,
-              ), // Match card border radius
+              borderRadius: BorderRadius.circular(16),
               child: GestureDetector(
                 onPanStart: (_) => _userInteracting = true,
                 onPanEnd: (_) {
                   _userInteracting = false;
-                  // Reset timer after user interaction
                   _resetAutoSlideTimer();
                 },
                 child: PageView.builder(
@@ -250,11 +343,11 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                       _currentPage = index;
                     });
                   },
-                  itemCount: _featuredBooks.length,
+                  itemCount: _heroBooks.length,
                   itemBuilder: (context, index) {
-                    final book = _featuredBooks[index];
+                    final book = _heroBooks[index];
                     return _buildFeaturedBookCard(book, isDark)
-                        .animate(key: ValueKey(index))
+                        .animate(key: ValueKey(book.id))
                         .fadeIn(duration: 500.ms)
                         .slideX(
                           begin: index > _currentPage ? 0.3 : -0.3,
@@ -272,7 +365,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(
-              _featuredBooks.length,
+              _heroBooks.length,
               (index) => GestureDetector(
                 onTap: () {
                   _userInteracting = true;
@@ -306,22 +399,21 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     );
   }
 
-  Widget _buildFeaturedBookCard(Map<String, String> book, bool isDark) {
+  Widget _buildFeaturedBookCard(BookModel book, bool isDark) {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
-      padding: const EdgeInsets.all(16), // Reduced padding to give more space
+      padding: const EdgeInsets.all(16),
       child: Row(
-        crossAxisAlignment:
-            CrossAxisAlignment.start, // Changed to start alignment
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Book Cover
           Expanded(
             flex: 2,
             child: Hero(
-              tag: 'featured_book_${book['title']}',
+              tag: 'featured_book_${book.id}',
               child: Container(
-                height: 240, // Reduced height to fit better
+                height: 240,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
@@ -334,48 +426,71 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(16),
-                  child: Image.network(
-                    book['image']!,
-                    fit: BoxFit.cover,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        decoration: BoxDecoration(
-                          color: isDark ? Colors.grey[800] : Colors.grey[300],
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              AppColors.accentGold,
+                  child: book.coverImageUrl.isNotEmpty
+                      ? Image.network(
+                          book.coverImageUrl,
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return Container(
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.grey[800]
+                                    : Colors.grey[300],
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    AppColors.accentGold,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) {
+                            return Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    AppColors.accentGold.withOpacity(0.8),
+                                    AppColors.accentGold,
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  FontAwesomeIcons.book,
+                                  size: 48,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            );
+                          },
+                        )
+                      : Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                AppColors.accentGold.withOpacity(0.8),
+                                AppColors.accentGold,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: const Center(
+                            child: Icon(
+                              FontAwesomeIcons.book,
+                              size: 48,
+                              color: Colors.white,
                             ),
                           ),
                         ),
-                      );
-                    },
-                    errorBuilder: (context, error, stackTrace) {
-                      return Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              AppColors.accentGold.withOpacity(0.8),
-                              AppColors.accentGold,
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            FontAwesomeIcons.book,
-                            size: 48,
-                            color: Colors.white,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
                 ),
               ),
             ),
@@ -390,11 +505,10 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment:
-                    MainAxisAlignment.spaceBetween, // Better space distribution
-                mainAxisSize: MainAxisSize.max, // Use full available height
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisSize: MainAxisSize.max,
                 children: [
-                  // Top section - Genre, Title, Author, Rating
+                  // Top section - Genre, Title, Author, Views
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -414,27 +528,30 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                           ),
                         ),
                         child: Text(
-                          book['genre']!,
+                          book.category.toUpperCase(),
                           style: const TextStyle(
-                            fontSize: 11, // Slightly smaller
+                            fontSize: 11,
                             fontWeight: FontWeight.w600,
                             color: AppColors.accentGold,
                           ),
                         ),
                       ),
 
-                      const SizedBox(height: 8), // Reduced spacing
+                      const SizedBox(height: 8),
+
                       // Book Title
                       AnimatedDefaultTextStyle(
                         duration: const Duration(milliseconds: 300),
                         style: TextStyle(
-                          fontSize: 20, // Slightly smaller
+                          fontSize: 20,
                           fontWeight: FontWeight.w700,
-                          color: CardStyles.primaryText(isDark),
+                          color: isDark
+                              ? AppColors.accentWhite
+                              : AppColors.primaryBlack,
                           height: 1.2,
                         ),
                         child: Text(
-                          book['title']!,
+                          book.title,
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -446,107 +563,126 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                       AnimatedDefaultTextStyle(
                         duration: const Duration(milliseconds: 300),
                         style: TextStyle(
-                          fontSize: 13, // Slightly smaller
+                          fontSize: 13,
                           fontWeight: FontWeight.w500,
-                          color: CardStyles.secondaryText(isDark),
+                          color: isDark
+                              ? AppColors.accentWhite.withOpacity(0.7)
+                              : AppColors.primaryBlack.withOpacity(0.7),
                         ),
-                        child: Text('by ${book['author']}'),
+                        child: Text('by ${book.author}'),
                       ),
 
                       const SizedBox(height: 8),
 
-                      // Rating
+                      // Views
                       Row(
                         children: [
-                          const Icon(
-                            FontAwesomeIcons.solidStar,
-                            size: 12, // Smaller icon
-                            color: AppColors.accentGold,
+                          Icon(
+                            FontAwesomeIcons.eye,
+                            size: 12,
+                            color: isDark
+                                ? AppColors.accentWhite.withOpacity(0.6)
+                                : AppColors.primaryBlack.withOpacity(0.6),
                           ),
                           const SizedBox(width: 4),
                           AnimatedDefaultTextStyle(
                             duration: const Duration(milliseconds: 300),
                             style: TextStyle(
-                              fontSize: 13, // Slightly smaller
+                              fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: CardStyles.primaryText(isDark),
+                              color: isDark
+                                  ? AppColors.accentWhite
+                                  : AppColors.primaryBlack,
                             ),
-                            child: Text(book['rating']!),
+                            child: Text('${book.viewCount}'),
                           ),
                           const SizedBox(width: 6),
                           AnimatedDefaultTextStyle(
                             duration: const Duration(milliseconds: 300),
                             style: TextStyle(
-                              fontSize: 11, // Smaller
-                              color: CardStyles.secondaryText(isDark),
+                              fontSize: 11,
+                              color: isDark
+                                  ? AppColors.accentWhite.withOpacity(0.6)
+                                  : AppColors.primaryBlack.withOpacity(0.6),
                             ),
-                            child: const Text('(2.1k reviews)'),
+                            child: const Text('views'),
                           ),
                         ],
                       ),
                     ],
                   ),
 
-                  // Middle section - Description
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
+                  const SizedBox(height: 16),
+
+                  // Description
+                  Expanded(
                     child: AnimatedDefaultTextStyle(
                       duration: const Duration(milliseconds: 300),
                       style: TextStyle(
-                        fontSize: 12, // Slightly smaller
-                        color: CardStyles.secondaryText(isDark),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: isDark
+                            ? AppColors.accentWhite.withOpacity(0.7)
+                            : AppColors.primaryBlack.withOpacity(0.7),
                         height: 1.4,
                       ),
                       child: Text(
-                        book['description']!,
-                        maxLines: 2, // Reduced to 2 lines to save space
+                        book.description,
+                        maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
 
-                  // Bottom section - Button
-                  SizedBox(
-                    width: double.infinity,
+                  const SizedBox(height: 16),
+
+                  // Read Button
+                  Align(
+                    alignment: Alignment.centerLeft,
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 300),
                       child: ElevatedButton(
                         onPressed: () {
-                          // Navigate to book detail
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Opening "${book['title']}"...'),
-                              backgroundColor: AppColors.accentGold,
-                              behavior: SnackBarBehavior.floating,
+                          // Increment view count when book is opened
+                          final bookProvider = Provider.of<BookProvider>(
+                            context,
+                            listen: false,
+                          );
+                          bookProvider.incrementViewCount(book.id);
+
+                          // Navigate to PDF reader for direct reading (same as library)
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => PDFReaderScreen(book: book),
                             ),
                           );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.accentGold,
-                          foregroundColor: Colors.black87,
+                          foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(
-                            vertical: 10,
-                          ), // Reduced padding
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            horizontal: 24,
+                            vertical: 12,
                           ),
-                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          elevation: 6,
+                          shadowColor: AppColors.accentGold.withOpacity(0.3),
                         ),
-                        child: const Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: const [
+                            Icon(FontAwesomeIcons.bookOpen, size: 14),
+                            SizedBox(width: 8),
                             Text(
                               'Read Now',
                               style: TextStyle(
-                                fontSize: 13, // Slightly smaller
                                 fontWeight: FontWeight.w600,
+                                fontSize: 14,
                               ),
                             ),
-                            SizedBox(width: 6),
-                            Icon(
-                              FontAwesomeIcons.arrowRight,
-                              size: 11,
-                            ), // Smaller icon
                           ],
                         ),
                       ),
@@ -561,46 +697,191 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     );
   }
 
-  Widget _buildFeaturesSection(bool isDark) {
-    final topBooks = [
-      {
-        'title': 'The Psychology of Money',
-        'author': 'Morgan Housel',
-        'rating': '4.8',
-        'image': 'book_placeholder.svg',
-      },
-      {
-        'title': 'Atomic Habits',
-        'author': 'James Clear',
-        'rating': '4.9',
-        'image': 'book_placeholder.svg',
-      },
-      {
-        'title': 'Think and Grow Rich',
-        'author': 'Napoleon Hill',
-        'rating': '4.7',
-        'image': 'book_placeholder.svg',
-      },
-      {
-        'title': 'Rich Dad Poor Dad',
-        'author': 'Robert Kiyosaki',
-        'rating': '4.6',
-        'image': 'book_placeholder.svg',
-      },
-    ];
+  Widget _buildTopBooksSection(bool isDark, BookProvider bookProvider) {
+    // Get all books
+    final allBooks = bookProvider.books;
+
+    if (allBooks.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Most Viewed Books',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.accentWhite : AppColors.primaryBlack,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              height: 200,
+              decoration: CardStyles.modernCard(isDark),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (bookProvider.isLoading) ...[
+                      CircularProgressIndicator(
+                        color: isDark
+                            ? AppColors.accentWhite
+                            : AppColors.primaryBlack,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Loading top books...',
+                        style: TextStyle(
+                          color: isDark
+                              ? AppColors.accentWhite.withOpacity(0.7)
+                              : AppColors.primaryBlack.withOpacity(0.7),
+                        ),
+                      ),
+                    ] else ...[
+                      Icon(
+                        Icons.trending_up,
+                        size: 64,
+                        color: isDark
+                            ? AppColors.accentWhite.withOpacity(0.3)
+                            : AppColors.primaryBlack.withOpacity(0.3),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No books available yet',
+                        style: TextStyle(
+                          color: isDark
+                              ? AppColors.accentWhite.withOpacity(0.7)
+                              : AppColors.primaryBlack.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Get hero book IDs to exclude from top books (only if _heroBooks is not empty)
+    final heroBookIds = _heroBooks.isNotEmpty
+        ? _heroBooks.map((book) => book.id).toSet()
+        : <String>{};
+
+    // Smart filtering logic based on available books
+    List<BookModel> topBooks;
+
+    if (allBooks.length <= 4) {
+      // If we have 4 or fewer books, allow overlap between hero and top books
+      // Just sort all books by view count and take the top ones
+      topBooks = List<BookModel>.from(allBooks)
+        ..sort((a, b) => b.viewCount.compareTo(a.viewCount));
+    } else {
+      // If we have more than 4 books, exclude hero books from top books
+      topBooks = List<BookModel>.from(allBooks)
+        ..removeWhere((book) => heroBookIds.contains(book.id))
+        ..sort((a, b) => b.viewCount.compareTo(a.viewCount));
+    }
+
+    final topBooksDisplay = topBooks.take(4).toList();
+    if (topBooksDisplay.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Most Viewed Books',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppColors.accentWhite : AppColors.primaryBlack,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              height: 200,
+              decoration: CardStyles.modernCard(isDark),
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (bookProvider.isLoading) ...[
+                      CircularProgressIndicator(
+                        color: isDark
+                            ? AppColors.accentWhite
+                            : AppColors.primaryBlack,
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Loading top books...',
+                        style: TextStyle(
+                          color: isDark
+                              ? AppColors.accentWhite.withOpacity(0.7)
+                              : AppColors.primaryBlack.withOpacity(0.7),
+                        ),
+                      ),
+                    ] else ...[
+                      Icon(
+                        Icons.trending_up,
+                        size: 64,
+                        color: isDark
+                            ? AppColors.accentWhite.withOpacity(0.5)
+                            : AppColors.primaryBlack.withOpacity(0.5),
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No books available yet',
+                        style: TextStyle(
+                          color: isDark
+                              ? AppColors.accentWhite.withOpacity(0.7)
+                              : AppColors.primaryBlack.withOpacity(0.7),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Top Books',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: isDark ? AppColors.accentWhite : AppColors.primaryBlack,
-            ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Most Viewed Books',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: isDark
+                      ? AppColors.accentWhite
+                      : AppColors.primaryBlack,
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  // Navigate to library screen
+                  Navigator.pushNamed(context, '/library');
+                },
+                child: Text(
+                  'View All',
+                  style: TextStyle(
+                    color: AppColors.accentGold,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
           ),
 
           const SizedBox(height: 20),
@@ -610,20 +891,14 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.65, // Adjusted for book card layout
+              childAspectRatio: 0.65,
               crossAxisSpacing: 15,
               mainAxisSpacing: 15,
             ),
-            itemCount: topBooks.length,
+            itemCount: topBooksDisplay.length,
             itemBuilder: (context, index) {
-              final book = topBooks[index];
-              return _buildTopBookCard(
-                    book['title'] as String,
-                    book['author'] as String,
-                    book['rating'] as String,
-                    book['image'] as String,
-                    isDark,
-                  )
+              final book = topBooksDisplay[index];
+              return _buildTopBookCard(book, isDark)
                   .animate(delay: (index * 100).ms)
                   .fadeIn(duration: 600.ms)
                   .slideY(begin: 0.3, duration: 500.ms);
@@ -634,181 +909,135 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
     );
   }
 
-  Widget _buildTopBookCard(
-    String title,
-    String author,
-    String rating,
-    String image,
-    bool isDark,
-  ) {
-    return Container(
-      decoration: CardStyles.smallCard(isDark),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Book Cover
-          Expanded(
-            flex: 3,
-            child: Container(
-              width: double.infinity,
-              margin: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(8),
-                color: AppColors.accentGold.withOpacity(0.1),
-                border: Border.all(
-                  color: AppColors.accentGold.withOpacity(0.2),
-                  width: 1,
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: SvgPicture.asset(
-                  'assets/images/$image',
-                  fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(
-                    AppColors.accentGold.withOpacity(0.3),
-                    BlendMode.overlay,
-                  ),
-                ),
-              ),
-            ),
-          ),
+  Widget _buildTopBookCard(BookModel book, bool isDark) {
+    return GestureDetector(
+      onTap: () {
+        // Increment view count when book is opened
+        final bookProvider = Provider.of<BookProvider>(context, listen: false);
+        bookProvider.incrementViewCount(book.id);
 
-          // Book Info
-          Expanded(
-            flex: 2,
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? AppColors.accentWhite
-                              : AppColors.primaryBlack,
-                          height: 1.2,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        author,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark
-                              ? AppColors.accentWhite.withOpacity(0.7)
-                              : AppColors.primaryBlack.withOpacity(0.7),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-
-                  // Rating
-                  Row(
-                    children: [
-                      Icon(
-                        FontAwesomeIcons.solidStar,
-                        size: 12,
-                        color: AppColors.accentGold,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        rating,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: isDark
-                              ? AppColors.accentWhite
-                              : AppColors.primaryBlack,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatsSection(bool isDark) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20.0),
+        // Navigate to PDF reader for direct reading (same as library)
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => PDFReaderScreen(book: book)),
+        );
+      },
       child: Container(
-        decoration: CardStyles.modernCard(isDark),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildStatItem(
-                '10K+',
-                'Books',
-                FontAwesomeIcons.bookOpen,
-                isDark,
+        decoration: CardStyles.smallCard(isDark),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Book Cover
+            Expanded(
+              flex: 4,
+              child: Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
+                  color: isDark
+                      ? AppColors.primaryBlack.withOpacity(0.3)
+                      : AppColors.accentWhite.withOpacity(0.3),
+                ),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(12),
+                  ),
+                  child: book.coverImageUrl.isNotEmpty
+                      ? Image.network(
+                          book.coverImageUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) {
+                            return Icon(
+                              Icons.book,
+                              size: 48,
+                              color: isDark
+                                  ? AppColors.accentWhite.withOpacity(0.5)
+                                  : AppColors.primaryBlack.withOpacity(0.5),
+                            );
+                          },
+                        )
+                      : Icon(
+                          Icons.book,
+                          size: 48,
+                          color: isDark
+                              ? AppColors.accentWhite.withOpacity(0.5)
+                              : AppColors.primaryBlack.withOpacity(0.5),
+                        ),
+                ),
               ),
-              _buildStatItem('50K+', 'Readers', FontAwesomeIcons.users, isDark),
-              _buildStatItem('4.9★', 'Rating', FontAwesomeIcons.star, isDark),
-            ],
-          ),
+            ),
+
+            // Book Info
+            Expanded(
+              flex: 3,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title
+                    Text(
+                      book.title,
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isDark
+                            ? AppColors.accentWhite
+                            : AppColors.primaryBlack,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    const SizedBox(height: 4),
+
+                    // Author
+                    Text(
+                      book.author,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? AppColors.accentWhite.withOpacity(0.7)
+                            : AppColors.primaryBlack.withOpacity(0.7),
+                        fontFamily: 'Poppins',
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+
+                    const Spacer(),
+
+                    // View count
+                    Row(
+                      children: [
+                        Icon(
+                          FontAwesomeIcons.eye,
+                          size: 10,
+                          color: isDark
+                              ? AppColors.accentWhite.withOpacity(0.5)
+                              : AppColors.primaryBlack.withOpacity(0.5),
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${book.viewCount} views',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isDark
+                                ? AppColors.accentWhite.withOpacity(0.5)
+                                : AppColors.primaryBlack.withOpacity(0.5),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
-    );
-  }
-
-  Widget _buildStatItem(
-    String number,
-    String label,
-    IconData icon,
-    bool isDark,
-  ) {
-    return Column(
-      children: [
-        Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            color: AppColors.accentGold.withOpacity(0.1),
-            border: Border.all(
-              color: AppColors.accentGold.withOpacity(0.2),
-              width: 1,
-            ),
-          ),
-          child: Icon(icon, size: 20, color: AppColors.accentGold),
-        ),
-        const SizedBox(height: 12),
-        Text(
-          number,
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: CardStyles.primaryText(isDark),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-            color: CardStyles.secondaryText(isDark),
-          ),
-        ),
-      ],
     );
   }
 }

@@ -6,6 +6,7 @@ import '../../providers/book_provider.dart';
 import '../../models/book_model.dart';
 import '../../core/constants/app_colors.dart';
 import '../../widgets/common/loading_widget.dart';
+import 'pdf_reader_screen.dart';
 
 class BookDetailScreen extends StatefulWidget {
   final String bookId;
@@ -220,9 +221,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: _book!.isFree
-                          ? AppColors.success
-                          : AppColors.primary,
+                      color: AppColors.success,
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -267,6 +266,19 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                     children: [
                       Expanded(
                         child: ElevatedButton.icon(
+                          onPressed: () => _readBook(),
+                          icon: const Icon(Icons.book_outlined),
+                          label: const Text('Read Now'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                            minimumSize: const Size(double.infinity, 50),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: ElevatedButton.icon(
                           onPressed: () => _downloadBook(),
                           icon: const Icon(Icons.download),
                           label: const Text('Download'),
@@ -275,7 +287,7 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
+                      const SizedBox(width: 12),
                       ElevatedButton(
                         onPressed: () => _toggleFavorite(),
                         style: ElevatedButton.styleFrom(
@@ -333,11 +345,9 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
           ),
           const SizedBox(height: 16),
           _buildInfoRow('Language', _book!.language),
-          _buildInfoRow('Pages', '${_book!.pageCount}'),
           _buildInfoRow('File Size', _book!.formattedFileSize),
           _buildInfoRow('Format', _book!.fileType.toUpperCase()),
           _buildInfoRow('Published', _book!.publishedDate.year.toString()),
-          if (_book!.isbn.isNotEmpty) _buildInfoRow('ISBN', _book!.isbn),
         ],
       ),
     );
@@ -360,6 +370,20 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
         ],
       ),
     );
+  }
+
+  void _readBook() {
+    if (_book != null) {
+      // Increment view count when book is opened for reading
+      final bookProvider = Provider.of<BookProvider>(context, listen: false);
+      bookProvider.incrementViewCount(_book!.id);
+
+      // Navigate to PDF reader
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => PDFReaderScreen(book: _book!)),
+      );
+    }
   }
 
   void _downloadBook() {

@@ -3,8 +3,11 @@ import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'core/theme/app_theme.dart';
+import 'core/middleware/auth_middleware.dart';
+import 'models/book_model.dart';
 import 'providers/auth_provider.dart';
 import 'providers/book_provider.dart';
+import 'providers/favorite_provider.dart';
 import 'providers/theme_provider.dart';
 import 'screens/main_wrapper.dart';
 import 'screens/auth/login_screen.dart';
@@ -15,7 +18,7 @@ import 'screens/profile/favorites_screen.dart';
 import 'screens/admin/admin_dashboard_screen.dart';
 import 'screens/admin/add_book_screen.dart';
 import 'screens/admin/manage_books_screen.dart';
-import 'screens/admin/seed_data_screen.dart';
+import 'screens/admin/manage_users_screen.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -37,9 +40,21 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => ThemeProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => BookProvider()),
+        ChangeNotifierProvider(create: (_) => FavoriteProvider()),
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, child) {
+          // Initialize FavoriteProvider when user logs in
+          if (authProvider.isLoggedIn) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              final favoriteProvider = Provider.of<FavoriteProvider>(
+                context,
+                listen: false,
+              );
+              favoriteProvider.loadFavoriteBooks();
+            });
+          }
+
           return AnimatedTheme(
             data: themeProvider.themeMode == ThemeMode.dark
                 ? AppTheme.darkTheme
@@ -125,19 +140,31 @@ class MyApp extends StatelessWidget {
         ),
         GoRoute(
           path: '/admin',
-          builder: (context, state) => const AdminDashboardScreen(),
+          builder: (context, state) => const AuthMiddleware(
+            requireAdmin: true,
+            child: AdminDashboardScreen(),
+          ),
         ),
         GoRoute(
           path: '/admin/add-book',
-          builder: (context, state) => const AddBookScreen(),
+          builder: (context, state) => AuthMiddleware(
+            requireAdmin: true,
+            child: AddBookScreen(bookToEdit: state.extra as BookModel?),
+          ),
         ),
         GoRoute(
           path: '/admin/manage-books',
-          builder: (context, state) => const ManageBooksScreen(),
+          builder: (context, state) => const AuthMiddleware(
+            requireAdmin: true,
+            child: ManageBooksScreen(),
+          ),
         ),
         GoRoute(
-          path: '/admin/seed-data',
-          builder: (context, state) => const SeedDataScreen(),
+          path: '/admin/manage-users',
+          builder: (context, state) => const AuthMiddleware(
+            requireAdmin: true,
+            child: ManageUsersScreen(),
+          ),
         ),
       ],
     );

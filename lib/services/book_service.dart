@@ -14,8 +14,6 @@ class BookService {
     int limit = 20,
     DocumentSnapshot? lastDocument,
     String? category,
-    bool? isFree,
-    bool? isPremium,
     String? searchQuery,
   }) async {
     try {
@@ -24,12 +22,6 @@ class BookService {
       // Apply filters
       if (category != null && category.isNotEmpty) {
         query = query.where('category', isEqualTo: category);
-      }
-      if (isFree != null) {
-        query = query.where('isFree', isEqualTo: isFree);
-      }
-      if (isPremium != null) {
-        query = query.where('isPremium', isEqualTo: isPremium);
       }
 
       // Apply search
@@ -66,8 +58,7 @@ class BookService {
     try {
       final snapshot = await _firestore
           .collection(AppConstants.booksCollection)
-          .orderBy('rating', descending: true)
-          .orderBy('downloadCount', descending: true)
+          .orderBy('viewCount', descending: true)
           .limit(limit)
           .get();
 
@@ -274,6 +265,18 @@ class BookService {
           .update({'downloadCount': FieldValue.increment(1)});
     } catch (e) {
       throw Exception('Failed to update download count: $e');
+    }
+  }
+
+  // Increment view count
+  Future<void> incrementViewCount(String bookId) async {
+    try {
+      await _firestore
+          .collection(AppConstants.booksCollection)
+          .doc(bookId)
+          .update({'viewCount': FieldValue.increment(1)});
+    } catch (e) {
+      throw Exception('Failed to update view count: $e');
     }
   }
 

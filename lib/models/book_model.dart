@@ -9,20 +9,16 @@ class BookModel {
   final String coverImageUrl;
   final String fileUrl;
   final String fileType; // pdf, epub, txt
-  final double price;
-  final bool isFree;
-  final bool isPremium;
   final DateTime publishedDate;
   final DateTime createdAt;
   final DateTime updatedAt;
   final int downloadCount;
   final int favoriteCount;
+  final int viewCount;
   final double rating;
   final int ratingCount;
   final List<String> tags;
-  final int pageCount;
   final String language;
-  final String isbn;
   final double fileSizeInMB;
 
   BookModel({
@@ -34,20 +30,16 @@ class BookModel {
     required this.coverImageUrl,
     required this.fileUrl,
     this.fileType = 'pdf',
-    this.price = 0.0,
-    this.isFree = true,
-    this.isPremium = false,
     required this.publishedDate,
     required this.createdAt,
     required this.updatedAt,
     this.downloadCount = 0,
     this.favoriteCount = 0,
+    this.viewCount = 0,
     this.rating = 0.0,
     this.ratingCount = 0,
     this.tags = const [],
-    this.pageCount = 0,
     this.language = 'English',
-    this.isbn = '',
     this.fileSizeInMB = 0.0,
   });
 
@@ -61,20 +53,16 @@ class BookModel {
       coverImageUrl: map['coverImageUrl'] ?? '',
       fileUrl: map['fileUrl'] ?? '',
       fileType: map['fileType'] ?? 'pdf',
-      price: (map['price'] ?? 0.0).toDouble(),
-      isFree: map['isFree'] ?? true,
-      isPremium: map['isPremium'] ?? false,
       publishedDate: (map['publishedDate'] as Timestamp).toDate(),
       createdAt: (map['createdAt'] as Timestamp).toDate(),
       updatedAt: (map['updatedAt'] as Timestamp).toDate(),
       downloadCount: map['downloadCount'] ?? 0,
       favoriteCount: map['favoriteCount'] ?? 0,
+      viewCount: map['viewCount'] ?? 0,
       rating: (map['rating'] ?? 0.0).toDouble(),
       ratingCount: map['ratingCount'] ?? 0,
       tags: List<String>.from(map['tags'] ?? []),
-      pageCount: map['pageCount'] ?? 0,
       language: map['language'] ?? 'English',
-      isbn: map['isbn'] ?? '',
       fileSizeInMB: (map['fileSizeInMB'] ?? 0.0).toDouble(),
     );
   }
@@ -88,20 +76,16 @@ class BookModel {
       'coverImageUrl': coverImageUrl,
       'fileUrl': fileUrl,
       'fileType': fileType,
-      'price': price,
-      'isFree': isFree,
-      'isPremium': isPremium,
       'publishedDate': Timestamp.fromDate(publishedDate),
       'createdAt': Timestamp.fromDate(createdAt),
       'updatedAt': Timestamp.fromDate(updatedAt),
       'downloadCount': downloadCount,
       'favoriteCount': favoriteCount,
+      'viewCount': viewCount,
       'rating': rating,
       'ratingCount': ratingCount,
       'tags': tags,
-      'pageCount': pageCount,
       'language': language,
-      'isbn': isbn,
       'fileSizeInMB': fileSizeInMB,
     };
   }
@@ -115,20 +99,16 @@ class BookModel {
     String? coverImageUrl,
     String? fileUrl,
     String? fileType,
-    double? price,
-    bool? isFree,
-    bool? isPremium,
     DateTime? publishedDate,
     DateTime? createdAt,
     DateTime? updatedAt,
     int? downloadCount,
     int? favoriteCount,
+    int? viewCount,
     double? rating,
     int? ratingCount,
     List<String>? tags,
-    int? pageCount,
     String? language,
-    String? isbn,
     double? fileSizeInMB,
   }) {
     return BookModel(
@@ -140,27 +120,22 @@ class BookModel {
       coverImageUrl: coverImageUrl ?? this.coverImageUrl,
       fileUrl: fileUrl ?? this.fileUrl,
       fileType: fileType ?? this.fileType,
-      price: price ?? this.price,
-      isFree: isFree ?? this.isFree,
-      isPremium: isPremium ?? this.isPremium,
       publishedDate: publishedDate ?? this.publishedDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       downloadCount: downloadCount ?? this.downloadCount,
       favoriteCount: favoriteCount ?? this.favoriteCount,
+      viewCount: viewCount ?? this.viewCount,
       rating: rating ?? this.rating,
       ratingCount: ratingCount ?? this.ratingCount,
       tags: tags ?? this.tags,
-      pageCount: pageCount ?? this.pageCount,
       language: language ?? this.language,
-      isbn: isbn ?? this.isbn,
       fileSizeInMB: fileSizeInMB ?? this.fileSizeInMB,
     );
   }
 
   String get formattedPrice {
-    if (isFree) return 'Free';
-    return '\$${price.toStringAsFixed(2)}';
+    return 'Free';
   }
 
   String get formattedFileSize {

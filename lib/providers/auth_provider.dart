@@ -10,16 +10,19 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
 
+  // Getters
   UserModel? get currentUser => _currentUser;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
   bool get isLoggedIn => _currentUser != null;
   bool get isAdmin => _currentUser?.isAdmin ?? false;
+  String get userRole => _currentUser?.role ?? 'user';
 
   AuthProvider() {
     _initializeAuth();
   }
 
+  // Initialize authentication state listening
   void _initializeAuth() {
     _authService.authStateChanges.listen((User? user) async {
       if (user != null) {
@@ -31,6 +34,7 @@ class AuthProvider extends ChangeNotifier {
     });
   }
 
+  // Load user data from Firestore
   Future<void> _loadUserData() async {
     try {
       print('Loading user data...');
@@ -38,24 +42,27 @@ class AuthProvider extends ChangeNotifier {
 
       if (_currentUser != null) {
         print(
-          'User data loaded successfully: ${_currentUser!.email} (${_currentUser!.role})',
+          'User data loaded: ${_currentUser!.email} (${_currentUser!.role})',
         );
-        _clearError(); // Clear any previous errors
+        if (_currentUser!.isAdmin) {
+          print('🎉 Admin user detected!');
+        }
+        _clearError();
       } else {
-        print('User data is null');
-        _setError('Failed to load user data');
+        print('User data not found - this might be during signup process');
+        // Don't set error during signup, just log it
+        // The data will be loaded once Firestore write is committed
       }
 
       notifyListeners();
     } catch (e) {
       print('Error loading user data: $e');
-      _errorMessage = e.toString();
-
-      // Don't set user to null on error, keep trying
+      _setError(e.toString());
       notifyListeners();
     }
   }
 
+  // Sign up with email and password
   Future<bool> signUp({
     required String email,
     required String password,
@@ -65,15 +72,21 @@ class AuthProvider extends ChangeNotifier {
       _setLoading(true);
       _clearError();
 
+      print('Attempting to create account for: $email');
+
       await _authService.signUpWithEmailAndPassword(
         email: email,
         password: password,
         name: name,
       );
 
-      await _loadUserData();
+      // Don't manually load user data here - let authStateChanges handle it
+      // await _loadUserData(); // ❌ This causes the race condition
+
+      print('Account created successfully!');
       return true;
     } catch (e) {
+      print('Sign up failed: $e');
       _setError(e.toString());
       return false;
     } finally {
@@ -81,103 +94,74 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // Sign in with email and password
   Future<bool> signIn({required String email, required String password}) async {
     try {
       _setLoading(true);
       _clearError();
 
-      // Try Firebase Auth first
-      try {
-        await _authService.signInWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-        await _loadUserData();
-        return true;
-      } catch (e) {
-        print('Firebase Auth failed: $e');
+      print('Attempting to sign in: $email');
 
-        // If Firebase Auth fails and it's a demo account, use bypass
-        if ((email == 'admin@test.com' || email == 'user@test.com') &&
-            password == '123456') {
-          print('Attempting demo login bypass...');
-          return await _demoLoginBypass(email, password);
-        } else {
-          rethrow;
-        }
-      }
-    } catch (e) {
-      _setError(e.toString());
-      return false;
-    } finally {
-      _setLoading(false);
-    }
-  }
-
-  // Demo login bypass method
-  Future<bool> _demoLoginBypass(String email, String password) async {
-    try {
-      final success = await _authService.demoLoginBypass(
+      await _authService.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      if (success) {
-        // Load demo user data
-        _currentUser = await _authService.getDemoUserData(email);
-        notifyListeners();
-        return true;
-      }
-      return false;
-    } catch (e) {
-      print('Demo login bypass failed: $e');
-      _setError(e.toString());
-      return false;
-    }
-  }
+      // Load user data after successful login
+      await _loadUserData();
 
-  Future<void> signOut() async {
-    try {
-      _setLoading(true);
-      await _authService.signOut();
-      _currentUser = null;
+      print('Sign in successful!');
+      return true;
     } catch (e) {
+      print('Sign in failed: $e');
       _setError(e.toString());
+      return false;
     } finally {
       _setLoading(false);
     }
   }
 
-  Future<void> createDemoAccounts() async {
+  // Sign in with Google (placeholder)
+  Future<bool> signInWithGoogle() async {
     try {
       _setLoading(true);
       _clearError();
 
-      // Try to create Firebase accounts first
-      try {
-        await _authService.createDummyAccounts();
-      } catch (e) {
-        print(
-          'Firebase account creation failed, creating local demo users: $e',
-        );
-        // If Firebase Auth fails, still create demo users in Firestore
-        await _authService.demoLoginBypass(
-          email: 'admin@test.com',
-          password: '123456',
-        );
-        await _authService.demoLoginBypass(
-          email: 'user@test.com',
-          password: '123456',
-        );
-      }
+      print('Attempting Google Sign-In...');
+
+      await _authService.signInWithGoogle();
+      await _loadUserData();
+
+      print('Google Sign-In successful!');
+      return true;
     } catch (e) {
+      print('Google Sign-In failed: $e');
       _setError(e.toString());
-      rethrow;
+      return false;
     } finally {
       _setLoading(false);
     }
   }
 
+  // Sign out
+  Future<void> signOut() async {
+    try {
+      _setLoading(true);
+      _clearError();
+
+      await _authService.signOut();
+      _currentUser = null;
+
+      print('Sign out successful');
+    } catch (e) {
+      print('Sign out failed: $e');
+      _setError(e.toString());
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Send password reset email
   Future<bool> sendPasswordResetEmail(String email) async {
     try {
       _setLoading(true);
@@ -186,6 +170,7 @@ class AuthProvider extends ChangeNotifier {
       await _authService.sendPasswordResetEmail(email);
       return true;
     } catch (e) {
+      print('Password reset failed: $e');
       _setError(e.toString());
       return false;
     } finally {
@@ -193,6 +178,7 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // Update user profile
   Future<bool> updateProfile({String? displayName, String? photoURL}) async {
     try {
       _setLoading(true);
@@ -203,9 +189,11 @@ class AuthProvider extends ChangeNotifier {
         photoURL: photoURL,
       );
 
+      // Reload user data
       await _loadUserData();
       return true;
     } catch (e) {
+      print('Profile update failed: $e');
       _setError(e.toString());
       return false;
     } finally {
@@ -213,6 +201,55 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // Admin functions
+
+  // Update user role (admin only)
+  Future<bool> updateUserRole(String targetUserId, String newRole) async {
+    try {
+      _setLoading(true);
+      _clearError();
+
+      if (!isAdmin) {
+        throw Exception('Unauthorized: Admin access required');
+      }
+
+      await _authService.updateUserRole(targetUserId, newRole);
+      return true;
+    } catch (e) {
+      print('Update user role failed: $e');
+      _setError(e.toString());
+      return false;
+    } finally {
+      _setLoading(false);
+    }
+  }
+
+  // Get all users (admin only)
+  Future<List<UserModel>> getAllUsers() async {
+    try {
+      if (!isAdmin) {
+        throw Exception('Unauthorized: Admin access required');
+      }
+
+      return await _authService.getAllUsers();
+    } catch (e) {
+      print('Get all users failed: $e');
+      _setError(e.toString());
+      return [];
+    }
+  }
+
+  // Get user count
+  Future<int> getUserCount() async {
+    try {
+      return await _authService.getUserCount();
+    } catch (e) {
+      print('Get user count failed: $e');
+      return 0;
+    }
+  }
+
+  // Delete account
   Future<bool> deleteAccount() async {
     try {
       _setLoading(true);
@@ -222,6 +259,7 @@ class AuthProvider extends ChangeNotifier {
       _currentUser = null;
       return true;
     } catch (e) {
+      print('Delete account failed: $e');
       _setError(e.toString());
       return false;
     } finally {
@@ -229,6 +267,17 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  // Check admin status
+  Future<bool> checkAdminStatus() async {
+    try {
+      return await _authService.isCurrentUserAdmin();
+    } catch (e) {
+      print('Check admin status failed: $e');
+      return false;
+    }
+  }
+
+  // Utility methods
   void _setLoading(bool loading) {
     _isLoading = loading;
     notifyListeners();
@@ -246,5 +295,32 @@ class AuthProvider extends ChangeNotifier {
 
   void clearError() {
     _clearError();
+  }
+
+  // Force refresh user data
+  Future<void> refreshUserData() async {
+    await _loadUserData();
+  }
+
+  // Get readable user info
+  String get userDisplayInfo {
+    if (_currentUser == null) return 'Not logged in';
+
+    final role = _currentUser!.isAdmin ? '👑 Admin' : '👤 User';
+    return '${_currentUser!.name} ($role)';
+  }
+
+  // Check if user has specific permission
+  bool hasPermission(String permission) {
+    if (_currentUser == null) return false;
+
+    switch (permission) {
+      case 'admin':
+        return _currentUser!.isAdmin;
+      case 'user':
+        return true; // All logged in users have basic permissions
+      default:
+        return false;
+    }
   }
 }

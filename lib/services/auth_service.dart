@@ -7,24 +7,19 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Flag to track ongoing signup process to prevent duplicate document creation
+  bool _isSignupInProgress = false;
+
   AuthService() {
     _configureAuth();
   }
 
-  // Configure Firebase Auth settings for development
+  // Configure Firebase Auth settings
   void _configureAuth() {
     try {
-      // Use Firebase Auth Emulator for development
-      // This will bypass rate limiting issues
-      if (true) {
-        // Development mode
-        print('Configuring Firebase Auth for development...');
-        // Disable app verification for testing
-        _auth.setSettings(appVerificationDisabledForTesting: true);
-
-        // Use emulator if available (uncomment if using Firebase emulator)
-        // await _auth.useAuthEmulator('localhost', 9099);
-      }
+      print('Configuring Enhanced Firebase Auth...');
+      // Disable app verification for testing
+      _auth.setSettings(appVerificationDisabledForTesting: true);
     } catch (e) {
       print('Auth configuration warning: $e');
     }
@@ -36,6 +31,80 @@ class AuthService {
   // Auth state stream
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
+  // Create user document in Firestore with atomic role assignment
+  Future<UserModel> _createUserDocument({
+    required String uid,
+    required String email,
+    required String name,
+    String? profileImage,
+    bool forceAdmin = false,
+  }) async {
+    try {
+      // Use transaction to ensure atomic user creation and role assignment
+      return await _firestore.runTransaction<UserModel>((transaction) async {
+        final counterDoc = _firestore
+            .collection('app_metadata')
+            .doc('user_counter');
+
+        final userDoc = _firestore
+            .collection(AppConstants.usersCollection)
+            .doc(uid);
+
+        // Check current user count
+        final counterSnapshot = await transaction.get(counterDoc);
+        final currentCount = counterSnapshot.exists
+            ? (counterSnapshot.data()?['count'] ?? 0)
+            : 0;
+
+        // Determine role - first user (count == 0) or forced admin becomes admin
+        final isFirstUser = currentCount == 0;
+        final role = (isFirstUser || forceAdmin)
+            ? AppConstants.adminRole
+            : AppConstants.userRole;
+
+        final userModel = UserModel(
+          uid: uid,
+          email: email,
+          name: name,
+          role: role,
+          profileImage: profileImage,
+          createdAt: DateTime.now(),
+        );
+
+        print('Creating user with name: "$name"');
+
+        // Create user document
+        transaction.set(userDoc, userModel.toMap());
+
+        // Update counter
+        if (counterSnapshot.exists) {
+          transaction.update(counterDoc, {
+            'count': FieldValue.increment(1),
+            'lastUpdated': FieldValue.serverTimestamp(),
+          });
+        } else {
+          transaction.set(counterDoc, {
+            'count': 1,
+            'createdAt': FieldValue.serverTimestamp(),
+            'lastUpdated': FieldValue.serverTimestamp(),
+          });
+        }
+
+        print(
+          'User document created: $email with role: $role (User #${currentCount + 1})',
+        );
+        if (isFirstUser) {
+          print('🎉 First user detected - granted admin privileges!');
+        }
+
+        return userModel;
+      });
+    } catch (e) {
+      print('Error creating user document: $e');
+      throw Exception('Failed to create user profile: $e');
+    }
+  }
+
   // Get current user data
   Future<UserModel?> getCurrentUserData() async {
     try {
@@ -44,99 +113,52 @@ class AuthService {
 
       print('Getting user data for UID: ${user.uid}');
 
-      try {
-        final doc = await _firestore
-            .collection(AppConstants.usersCollection)
-            .doc(user.uid)
-            .get();
+      // If signup is in progress, wait a bit longer for document creation
+      if (_isSignupInProgress) {
+        print('Signup in progress, waiting for document creation...');
+        await Future.delayed(const Duration(milliseconds: 1000));
+      }
 
-        if (doc.exists) {
-          print('User data found in Firestore');
-          return UserModel.fromMap(doc.data()!);
-        } else {
-          print('User document not found, checking if demo user...');
-          // If document doesn't exist, check if it's a demo user by email
-          return await _handleMissingUserDocument(user);
+      // First attempt to get user document
+      final doc = await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists) {
+        print('User data found in Firestore');
+        return UserModel.fromMap(doc.data()!);
+      } else {
+        print(
+          'User document not found on first attempt, waiting and retrying...',
+        );
+
+        // Multiple retries with longer delays for Firestore consistency
+        for (int i = 0; i < 3; i++) {
+          await Future.delayed(
+            Duration(milliseconds: 500 * (i + 1)),
+          ); // 500ms, 1s, 1.5s
+
+          final retryDoc = await _firestore
+              .collection(AppConstants.usersCollection)
+              .doc(user.uid)
+              .get();
+
+          if (retryDoc.exists) {
+            print('User data found in Firestore on retry ${i + 1}');
+            return UserModel.fromMap(retryDoc.data()!);
+          }
         }
-      } catch (firestoreError) {
-        print('Firestore permission error: $firestoreError');
-        // If permission denied, try to handle as demo user
-        return await _handlePermissionDeniedUser(user);
+
+        print(
+          'User document not found after all retries - this might be an error',
+        );
+        // Don't create document here anymore - only read
+        return null;
       }
     } catch (e) {
-      print('General error getting user data: $e');
+      print('Error getting user data: $e');
       throw Exception('Failed to get user data: $e');
-    }
-  }
-
-  // Handle missing user document (create if demo user)
-  Future<UserModel?> _handleMissingUserDocument(User user) async {
-    try {
-      // Check if it's a demo user email
-      if (user.email == 'admin@test.com' || user.email == 'user@test.com') {
-        print('Creating missing demo user document for: ${user.email}');
-
-        final userModel = UserModel(
-          uid: user.uid,
-          email: user.email!,
-          name: user.email == 'admin@test.com' ? 'Admin User' : 'Test User',
-          role: user.email == 'admin@test.com'
-              ? AppConstants.adminRole
-              : AppConstants.userRole,
-          createdAt: DateTime.now(),
-        );
-
-        // Try to create the document
-        await _firestore
-            .collection(AppConstants.usersCollection)
-            .doc(user.uid)
-            .set(userModel.toMap());
-
-        print('Demo user document created successfully');
-        return userModel;
-      }
-      return null;
-    } catch (e) {
-      print('Error creating demo user document: $e');
-      return null;
-    }
-  }
-
-  // Handle permission denied error (return demo user data)
-  Future<UserModel?> _handlePermissionDeniedUser(User user) async {
-    try {
-      print('Handling permission denied for user: ${user.email}');
-
-      // Return demo user data based on email
-      if (user.email == 'admin@test.com') {
-        return UserModel(
-          uid: user.uid,
-          email: user.email!,
-          name: 'Admin User',
-          role: AppConstants.adminRole,
-          createdAt: DateTime.now(),
-        );
-      } else if (user.email == 'user@test.com') {
-        return UserModel(
-          uid: user.uid,
-          email: user.email!,
-          name: 'Test User',
-          role: AppConstants.userRole,
-          createdAt: DateTime.now(),
-        );
-      }
-
-      // For other users, return basic user data
-      return UserModel(
-        uid: user.uid,
-        email: user.email ?? 'unknown@example.com',
-        name: user.displayName ?? 'User',
-        role: AppConstants.userRole,
-        createdAt: DateTime.now(),
-      );
-    } catch (e) {
-      print('Error handling permission denied user: $e');
-      return null;
     }
   }
 
@@ -147,34 +169,43 @@ class AuthService {
     required String name,
   }) async {
     try {
+      print('Creating account for: $email with name: $name');
+
+      // Set flag to indicate signup in progress
+      _isSignupInProgress = true;
+
+      // Create Firebase Auth account
       final credential = await _auth.createUserWithEmailAndPassword(
-        email: email,
+        email: email.trim(),
         password: password,
       );
 
-      if (credential.user != null) {
-        // Create user document in Firestore
-        final userModel = UserModel(
-          uid: credential.user!.uid,
-          email: email,
-          name: name,
-          role: AppConstants.userRole,
-          createdAt: DateTime.now(),
-        );
+      // Update display name
+      await credential.user?.updateDisplayName(name.trim());
 
-        await _firestore
-            .collection(AppConstants.usersCollection)
-            .doc(credential.user!.uid)
-            .set(userModel.toMap());
+      // Create user document in Firestore
+      await _createUserDocument(
+        uid: credential.user!.uid,
+        email: email.trim(),
+        name: name.trim(), // Ensure we pass the name parameter directly
+        profileImage: credential.user?.photoURL,
+      );
 
-        // Update display name
-        await credential.user!.updateDisplayName(name);
-      }
+      // Wait a moment to ensure Firestore write is committed before authStateChanges triggers
+      await Future.delayed(const Duration(milliseconds: 500));
 
+      // Clear signup flag
+      _isSignupInProgress = false;
+
+      print('Account created successfully for: $email');
       return credential;
     } on FirebaseAuthException catch (e) {
+      _isSignupInProgress = false; // Clear flag on error
+      print('FirebaseAuth error during sign up: ${e.code} - ${e.message}');
       throw Exception(_getAuthErrorMessage(e.code));
     } catch (e) {
+      _isSignupInProgress = false; // Clear flag on error
+      print('General error during sign up: $e');
       throw Exception('Failed to create account: $e');
     }
   }
@@ -185,48 +216,46 @@ class AuthService {
     required String password,
   }) async {
     try {
-      print('Attempting to sign in with email: $email');
-      final result = await _auth.signInWithEmailAndPassword(
-        email: email,
+      print('Signing in user: $email');
+
+      final credential = await _auth.signInWithEmailAndPassword(
+        email: email.trim(),
         password: password,
       );
-      print('Sign in successful for: $email');
-      return result;
+
+      print('User signed in successfully: $email');
+      return credential;
     } on FirebaseAuthException catch (e) {
       print('FirebaseAuth error during sign in: ${e.code} - ${e.message}');
-      switch (e.code) {
-        case 'user-not-found':
-          throw Exception(
-            'No user found for that email. Please create an account first.',
-          );
-        case 'wrong-password':
-          throw Exception('Wrong password provided for that user.');
-        case 'invalid-email':
-          throw Exception('The email address is not valid.');
-        case 'user-disabled':
-          throw Exception('This user account has been disabled.');
-        case 'too-many-requests':
-          throw Exception(
-            'Too many failed login attempts. Please try again later.',
-          );
-        case 'network-request-failed':
-          throw Exception(
-            'Network error. Please check your internet connection.',
-          );
-        default:
-          throw Exception(_getAuthErrorMessage(e.code));
-      }
+      throw Exception(_getAuthErrorMessage(e.code));
     } catch (e) {
       print('General error during sign in: $e');
       throw Exception('Failed to sign in: $e');
     }
   }
 
+  // Sign in with Google (placeholder for future implementation)
+  Future<UserCredential> signInWithGoogle() async {
+    try {
+      // TODO: Implement Google Sign-In
+      // For now, throw an exception to indicate it's not implemented
+      throw Exception('Google Sign-In will be implemented in the next phase');
+    } catch (e) {
+      print('Google Sign-In not available: $e');
+      throw Exception('Google Sign-In is not available yet');
+    }
+  }
+
   // Sign out
   Future<void> signOut() async {
     try {
+      print('Signing out user...');
+
+      // Sign out from Firebase
       await _auth.signOut();
+      print('User signed out successfully');
     } catch (e) {
+      print('Error during sign out: $e');
       throw Exception('Failed to sign out: $e');
     }
   }
@@ -234,10 +263,13 @@ class AuthService {
   // Send password reset email
   Future<void> sendPasswordResetEmail(String email) async {
     try {
-      await _auth.sendPasswordResetEmail(email: email);
+      await _auth.sendPasswordResetEmail(email: email.trim());
+      print('Password reset email sent to: $email');
     } on FirebaseAuthException catch (e) {
+      print('Error sending password reset email: ${e.code} - ${e.message}');
       throw Exception(_getAuthErrorMessage(e.code));
     } catch (e) {
+      print('General error sending password reset email: $e');
       throw Exception('Failed to send password reset email: $e');
     }
   }
@@ -251,14 +283,51 @@ class AuthService {
       final user = currentUser;
       if (user == null) throw Exception('No user logged in');
 
+      // Update Firebase Auth profile
       if (displayName != null) {
         await user.updateDisplayName(displayName);
       }
       if (photoURL != null) {
         await user.updatePhotoURL(photoURL);
       }
+
+      // Update Firestore document
+      final updates = <String, dynamic>{};
+      if (displayName != null) updates['name'] = displayName;
+      if (photoURL != null) updates['profileImage'] = photoURL;
+
+      if (updates.isNotEmpty) {
+        await _firestore
+            .collection(AppConstants.usersCollection)
+            .doc(user.uid)
+            .update(updates);
+      }
+
+      print('User profile updated successfully');
     } catch (e) {
+      print('Error updating user profile: $e');
       throw Exception('Failed to update profile: $e');
+    }
+  }
+
+  // Update user role (admin only)
+  Future<void> updateUserRole(String targetUserId, String newRole) async {
+    try {
+      final currentUserData = await getCurrentUserData();
+
+      if (currentUserData == null || !currentUserData.isAdmin) {
+        throw Exception('Unauthorized: Admin access required');
+      }
+
+      await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(targetUserId)
+          .update({'role': newRole});
+
+      print('User role updated successfully: $targetUserId -> $newRole');
+    } catch (e) {
+      print('Error updating user role: $e');
+      throw Exception('Failed to update user role: $e');
     }
   }
 
@@ -274,238 +343,102 @@ class AuthService {
           .doc(user.uid)
           .delete();
 
-      // Delete user account
+      // Delete Firebase Auth account
       await user.delete();
+
+      print('Account deleted successfully');
     } catch (e) {
+      print('Error deleting account: $e');
       throw Exception('Failed to delete account: $e');
     }
   }
 
-  // Check if user is admin
-  Future<bool> isUserAdmin() async {
+  // Get all users (admin only)
+  Future<List<UserModel>> getAllUsers() async {
+    try {
+      final currentUserData = await getCurrentUserData();
+
+      if (currentUserData == null || !currentUserData.isAdmin) {
+        throw Exception('Unauthorized: Admin access required');
+      }
+
+      final querySnapshot = await _firestore
+          .collection(AppConstants.usersCollection)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => UserModel.fromMap(doc.data()))
+          .toList();
+    } catch (e) {
+      print('Error getting all users: $e');
+      throw Exception('Failed to get users: $e');
+    }
+  }
+
+  // Check if current user has admin privileges
+  Future<bool> isCurrentUserAdmin() async {
     try {
       final userData = await getCurrentUserData();
       return userData?.isAdmin ?? false;
     } catch (e) {
+      print('Error checking admin status: $e');
       return false;
     }
   }
 
-  // Create dummy accounts for testing
-  Future<void> createDummyAccounts() async {
+  // Get user count
+  Future<int> getUserCount() async {
     try {
-      print('Starting to create dummy accounts...');
-
-      // Create admin account
-      try {
-        print('Creating admin account...');
-        final adminCredential = await _auth.createUserWithEmailAndPassword(
-          email: 'admin@test.com',
-          password: '123456',
-        );
-
-        if (adminCredential.user != null) {
-          print('Admin Firebase user created successfully');
-          final adminModel = UserModel(
-            uid: adminCredential.user!.uid,
-            email: 'admin@test.com',
-            name: 'Admin User',
-            role: AppConstants.adminRole,
-            createdAt: DateTime.now(),
-          );
-
-          await _firestore
-              .collection(AppConstants.usersCollection)
-              .doc(adminCredential.user!.uid)
-              .set(adminModel.toMap());
-
-          await adminCredential.user!.updateDisplayName('Admin User');
-          print('Admin user data saved to Firestore');
-        }
-      } on FirebaseAuthException catch (e) {
-        print(
-          'Admin account creation FirebaseAuth error: ${e.code} - ${e.message}',
-        );
-        if (e.code == 'email-already-in-use') {
-          print('Admin account already exists');
-        } else {
-          print('Failed to create admin account: ${e.message}');
-        }
-      } catch (e) {
-        print('Admin account creation general error: $e');
-      }
-
-      // Create user account
-      try {
-        print('Creating user account...');
-        final userCredential = await _auth.createUserWithEmailAndPassword(
-          email: 'user@test.com',
-          password: '123456',
-        );
-
-        if (userCredential.user != null) {
-          print('User Firebase user created successfully');
-          final userModel = UserModel(
-            uid: userCredential.user!.uid,
-            email: 'user@test.com',
-            name: 'Test User',
-            role: AppConstants.userRole,
-            createdAt: DateTime.now(),
-          );
-
-          await _firestore
-              .collection(AppConstants.usersCollection)
-              .doc(userCredential.user!.uid)
-              .set(userModel.toMap());
-
-          await userCredential.user!.updateDisplayName('Test User');
-          print('User data saved to Firestore');
-        }
-      } on FirebaseAuthException catch (e) {
-        print(
-          'User account creation FirebaseAuth error: ${e.code} - ${e.message}',
-        );
-        if (e.code == 'email-already-in-use') {
-          print('User account already exists');
-        } else {
-          print('Failed to create user account: ${e.message}');
-        }
-      } catch (e) {
-        print('User account creation general error: $e');
-      }
-
-      print('Dummy accounts creation process completed');
-    } catch (e) {
-      print('General error in createDummyAccounts: $e');
-      throw Exception('Failed to create dummy accounts: $e');
-    }
-  }
-
-  // Update user role (admin only)
-  Future<void> updateUserRole(String uid, String role) async {
-    try {
-      await _firestore.collection(AppConstants.usersCollection).doc(uid).update(
-        {'role': role},
-      );
-    } catch (e) {
-      throw Exception('Failed to update user role: $e');
-    }
-  }
-
-  // Demo login bypass - for development when Firebase Auth is blocked
-  Future<bool> demoLoginBypass({
-    required String email,
-    required String password,
-  }) async {
-    try {
-      print('Attempting demo bypass login for: $email');
-
-      if ((email == 'admin@test.com' || email == 'user@test.com') &&
-          password == '123456') {
-        print('Demo login credentials valid, creating session...');
-
-        // Create demo user data if not exists
-        await _ensureDemoUserExists(email);
-
-        return true;
-      } else {
-        throw Exception('Invalid demo credentials');
-      }
-    } catch (e) {
-      print('Demo bypass login failed: $e');
-      return false;
-    }
-  }
-
-  // Ensure demo user exists in Firestore
-  Future<void> _ensureDemoUserExists(String email) async {
-    try {
-      String uid;
-      String name;
-      String role;
-
-      if (email == 'admin@test.com') {
-        uid = 'demo_admin_uid';
-        name = 'Admin User';
-        role = AppConstants.adminRole;
-      } else {
-        uid = 'demo_user_uid';
-        name = 'Test User';
-        role = AppConstants.userRole;
-      }
-
-      // Check if user already exists
-      final doc = await _firestore
-          .collection(AppConstants.usersCollection)
-          .doc(uid)
+      // Use counter document for better performance
+      final counterDoc = await _firestore
+          .collection('app_metadata')
+          .doc('user_counter')
           .get();
 
-      if (!doc.exists) {
-        // Create user data
-        final userModel = UserModel(
-          uid: uid,
-          email: email,
-          name: name,
-          role: role,
-          createdAt: DateTime.now(),
-        );
-
-        await _firestore
-            .collection(AppConstants.usersCollection)
-            .doc(uid)
-            .set(userModel.toMap());
-
-        print('Demo user created in Firestore: $email');
-      } else {
-        print('Demo user already exists: $email');
+      if (counterDoc.exists) {
+        return counterDoc.data()?['count'] ?? 0;
       }
-    } catch (e) {
-      print('Error ensuring demo user exists: $e');
-      throw Exception('Failed to create demo user: $e');
-    }
-  }
 
-  // Get demo user data (bypass Firebase Auth)
-  Future<UserModel?> getDemoUserData(String email) async {
-    try {
-      String uid = email == 'admin@test.com'
-          ? 'demo_admin_uid'
-          : 'demo_user_uid';
-
-      final doc = await _firestore
+      // Fallback: count actual user documents
+      final querySnapshot = await _firestore
           .collection(AppConstants.usersCollection)
-          .doc(uid)
           .get();
 
-      if (doc.exists) {
-        return UserModel.fromMap(doc.data()!);
-      }
-      return null;
+      return querySnapshot.docs.length;
     } catch (e) {
-      print('Error getting demo user data: $e');
-      return null;
+      print('Error getting user count: $e');
+      return 0;
     }
   }
 
-  // Get auth error message
+  // Helper method to get readable error messages
   String _getAuthErrorMessage(String code) {
     switch (code) {
-      case 'weak-password':
-        return 'The password provided is too weak.';
-      case 'email-already-in-use':
-        return 'The account already exists for that email.';
       case 'user-not-found':
-        return 'No user found for that email.';
+        return 'No user found with this email address.';
       case 'wrong-password':
-        return 'Wrong password provided for that user.';
+        return 'Wrong password provided.';
+      case 'email-already-in-use':
+        return 'An account already exists with this email address.';
+      case 'weak-password':
+        return 'Password is too weak. Please choose a stronger password.';
       case 'invalid-email':
-        return 'The email address is not valid.';
+        return 'Invalid email address format.';
       case 'user-disabled':
         return 'This user account has been disabled.';
       case 'too-many-requests':
-        return 'Too many failed login attempts. Please try again later.';
+        return 'Too many attempts. Please try again later.';
+      case 'operation-not-allowed':
+        return 'This operation is not allowed. Please contact support.';
+      case 'invalid-credential':
+        return 'Invalid login credentials.';
+      case 'network-request-failed':
+        return 'Network error. Please check your internet connection.';
+      case 'requires-recent-login':
+        return 'Please log out and log back in to perform this action.';
       default:
-        return 'An error occurred. Please try again.';
+        return 'Authentication error: $code';
     }
   }
 }

@@ -4,7 +4,7 @@ import '../providers/theme_provider.dart';
 import '../core/theme/card_styles.dart';
 import 'home/home_screen.dart';
 import 'books/books_library_screen.dart';
-import '../screens/profile/favorites_screen.dart';
+import '../screens/favorites/favorites_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../widgets/bottom_nav.dart';
 import '../core/theme/app_colors.dart';

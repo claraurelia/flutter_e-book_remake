@@ -1,0 +1,121 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Helper function to extract userId from composite favoriteId
+    function getUserIdFromFavoriteId(favoriteId) {
+      return favoriteId.split('_')[0];
+    }
+    
+    // Users collection - more secure
+    match /users/{userId} {
+      // Users can read and write their own document
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow admins to read all users (for admin dashboard)
+      allow read: if isAdmin();
+      
+      // Allow creating user documents during registration
+      allow create: if request.auth != null && request.auth.uid == userId;
+      
+      // Allow admin users to update any user document (for premium status, roles, etc.)
+      allow update: if isAdmin();
+    }
+    
+    // App metadata collection for counters and system data
+    match /app_metadata/{docId} {
+      // Allow authenticated users to read metadata
+      allow read: if request.auth != null;
+      
+      // Allow authenticated users to update user_counter during registration
+      allow update: if request.auth != null && docId == 'user_counter';
+      
+      // Allow creating user_counter if it doesn't exist
+      allow create: if request.auth != null && docId == 'user_counter';
+      
+      // Only admins can write other metadata
+      allow write: if isAdmin();
+    }
+    
+    // Books collection - admin protection
+    match /books/{bookId} {
+      // Anyone can read books (for public browsing)
+      allow read: if true;
+      
+      // Only admins can create/delete books
+      allow create, delete: if isAdmin();
+      
+      // Allow authenticated users to update favorite count
+      // but only admins can update other fields
+      allow update: if request.auth != null && (
+        // Admin can update anything
+        isAdmin() ||
+        // Regular users can only update specific fields (favoriteCount, viewCount)
+        (resource.data.keys().hasAll(request.resource.data.keys()) &&
+         request.resource.data.keys().hasOnly(['favoriteCount', 'viewCount']) &&
+         request.resource.data.keys().hasAny(['favoriteCount', 'viewCount']))
+      );
+    }
+    
+    // Categories collection
+    match /categories/{categoryId} {
+      // Anyone can read categories
+      allow read: if true;
+      
+      // Only admins can write categories
+      allow write: if isAdmin();
+    }
+    
+    // User Favorites collection - FIXED collection name and logic
+    match /user_favorites/{favoriteId} {
+      // Users can manage their own favorites
+      // favoriteId format: {userId}_{bookId}
+      allow read, write: if request.auth != null && 
+        getUserIdFromFavoriteId(favoriteId) == request.auth.uid;
+      
+      // Admins can read all favorites (for analytics)
+      allow read: if isAdmin();
+      
+      // Ensure correct data structure on create/update
+      allow create, update: if request.auth != null &&
+        getUserIdFromFavoriteId(favoriteId) == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['userId', 'bookId', 'addedAt']);
+    }
+    
+    // Purchases collection
+    match /purchases/{purchaseId} {
+      // Users can only access their own purchases
+      allow read, write: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+      
+      // Allow creating purchases with proper user validation
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid;
+        
+      // Admins can read all purchases (for analytics)
+      allow read: if isAdmin();
+    }
+    
+    // Downloads collection  
+    match /downloads/{downloadId} {
+      // Users can only access their own downloads
+      allow read, write: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+        
+      // Allow creating downloads with proper user validation
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid;
+        
+      // Admins can read all downloads (for analytics)
+      allow read: if isAdmin();
+    }
+  }
+}

@@ -45,12 +45,7 @@ class BookProvider extends ChangeNotifier {
   }
 
   // Load books with pagination
-  Future<void> loadBooks({
-    bool refresh = false,
-    String? category,
-    bool? isFree,
-    bool? isPremium,
-  }) async {
+  Future<void> loadBooks({bool refresh = false, String? category}) async {
     try {
       if (refresh) {
         _setLoading(true);
@@ -69,12 +64,16 @@ class BookProvider extends ChangeNotifier {
       final newBooks = await _bookService.getBooks(
         lastDocument: _lastDocument,
         category: category,
-        isFree: isFree,
-        isPremium: isPremium,
       );
 
       if (newBooks.isNotEmpty) {
-        _books.addAll(newBooks);
+        // Filter out duplicates by checking book IDs
+        final existingIds = _books.map((book) => book.id).toSet();
+        final uniqueNewBooks = newBooks
+            .where((book) => !existingIds.contains(book.id))
+            .toList();
+
+        _books.addAll(uniqueNewBooks);
         _lastDocument = await FirebaseFirestore.instance
             .collection('books')
             .doc(newBooks.last.id)
@@ -158,9 +157,9 @@ class BookProvider extends ChangeNotifier {
     await loadBooks(refresh: true, category: category);
   }
 
-  // Filter by type
-  Future<void> filterByType({bool? isFree, bool? isPremium}) async {
-    await loadBooks(refresh: true, isFree: isFree, isPremium: isPremium);
+  // Filter by type (simplified to just refresh all books since all are free now)
+  Future<void> filterByType() async {
+    await loadBooks(refresh: true);
   }
 
   // Get book by ID
@@ -374,6 +373,25 @@ class BookProvider extends ChangeNotifier {
     } catch (e) {
       _setError(e.toString());
       return false;
+    }
+  }
+
+  // Increment view count
+  Future<void> incrementViewCount(String bookId) async {
+    try {
+      await _bookService.incrementViewCount(bookId);
+
+      // Update local data
+      final bookIndex = _books.indexWhere((book) => book.id == bookId);
+      if (bookIndex != -1) {
+        final updatedBook = _books[bookIndex];
+        _books[bookIndex] = updatedBook.copyWith(
+          viewCount: updatedBook.viewCount + 1,
+        );
+        notifyListeners();
+      }
+    } catch (e) {
+      _setError(e.toString());
     }
   }
 }
