@@ -464,10 +464,4 @@ dependencies:
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Screenshots
 
-[Add screenshots of your app here]
-
-## Support
-
-For support, email your-email@example.com or create an issue in this repository.
