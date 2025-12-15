@@ -59,5 +59,8 @@ ios/Firebase/
 **/.env
 
 firebase.json
-firebase_options.dart
-google-services.json
+lib/firebase_options.dart
+android/app/google-services.json
+lib/core/constants/app_constants.dart
+.env
+.flutter-plugins-dependencies
