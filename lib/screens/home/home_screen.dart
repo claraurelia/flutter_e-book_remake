@@ -8,7 +8,7 @@ import '../../providers/book_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/card_styles.dart';
 import '../../models/book_model.dart';
-import '../book/pdf_reader_screen.dart';
+import '../book/book_detail_screen.dart';
 
 class PremiumHomeScreen extends StatefulWidget {
   const PremiumHomeScreen({super.key});
@@ -247,22 +247,6 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
               ).animate(delay: 200.ms).fadeIn(duration: 600.ms),
             ],
           ),
-          Container(
-                width: 48,
-                height: 48,
-                decoration: CardStyles.modernCard(isDark),
-                child: Icon(
-                  FontAwesomeIcons.bell,
-                  color: isDark
-                      ? AppColors.accentWhite
-                      : AppColors.primaryBlack,
-                  size: 20,
-                ),
-              )
-              .animate(delay: 400.ms)
-              .scale(begin: const Offset(0.5, 0.5), duration: 600.ms)
-              .then()
-              .shimmer(duration: 2000.ms),
         ],
       ),
     );
@@ -557,7 +541,7 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                         ),
                       ),
 
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
 
                       // Author
                       AnimatedDefaultTextStyle(
@@ -570,44 +554,6 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                               : AppColors.primaryBlack.withOpacity(0.7),
                         ),
                         child: Text('by ${book.author}'),
-                      ),
-
-                      const SizedBox(height: 8),
-
-                      // Views
-                      Row(
-                        children: [
-                          Icon(
-                            FontAwesomeIcons.eye,
-                            size: 12,
-                            color: isDark
-                                ? AppColors.accentWhite.withOpacity(0.6)
-                                : AppColors.primaryBlack.withOpacity(0.6),
-                          ),
-                          const SizedBox(width: 4),
-                          AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 300),
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                              color: isDark
-                                  ? AppColors.accentWhite
-                                  : AppColors.primaryBlack,
-                            ),
-                            child: Text('${book.viewCount}'),
-                          ),
-                          const SizedBox(width: 6),
-                          AnimatedDefaultTextStyle(
-                            duration: const Duration(milliseconds: 300),
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: isDark
-                                  ? AppColors.accentWhite.withOpacity(0.6)
-                                  : AppColors.primaryBlack.withOpacity(0.6),
-                            ),
-                            child: const Text('views'),
-                          ),
-                        ],
                       ),
                     ],
                   ),
@@ -643,18 +589,11 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                       duration: const Duration(milliseconds: 300),
                       child: ElevatedButton(
                         onPressed: () {
-                          // Increment view count when book is opened
-                          final bookProvider = Provider.of<BookProvider>(
-                            context,
-                            listen: false,
-                          );
-                          bookProvider.incrementViewCount(book.id);
-
-                          // Navigate to PDF reader for direct reading (same as library)
+                          // Navigate to book detail screen
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => PDFReaderScreen(book: book),
+                              builder: (context) => BookDetailScreen(bookId: book.id),
                             ),
                           );
                         },
@@ -912,14 +851,12 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
   Widget _buildTopBookCard(BookModel book, bool isDark) {
     return GestureDetector(
       onTap: () {
-        // Increment view count when book is opened
-        final bookProvider = Provider.of<BookProvider>(context, listen: false);
-        bookProvider.incrementViewCount(book.id);
-
-        // Navigate to PDF reader for direct reading (same as library)
+        // Navigate to book detail screen
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => PDFReaderScreen(book: book)),
+          MaterialPageRoute(
+            builder: (context) => BookDetailScreen(bookId: book.id),
+          ),
         );
       },
       child: Container(
@@ -1005,31 +942,6 @@ class _PremiumHomeScreenState extends State<PremiumHomeScreen>
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                    ),
-
-                    const Spacer(),
-
-                    // View count
-                    Row(
-                      children: [
-                        Icon(
-                          FontAwesomeIcons.eye,
-                          size: 10,
-                          color: isDark
-                              ? AppColors.accentWhite.withOpacity(0.5)
-                              : AppColors.primaryBlack.withOpacity(0.5),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${book.viewCount} views',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: isDark
-                                ? AppColors.accentWhite.withOpacity(0.5)
-                                : AppColors.primaryBlack.withOpacity(0.5),
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ),

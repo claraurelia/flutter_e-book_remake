@@ -483,4 +483,123 @@ class BookService {
       throw Exception('Failed to check favorite status: $e');
     }
   }
+
+  // ============ PAYMENT & PURCHASE METHODS ============
+
+  /// Get free books only
+  Future<List<BookModel>> getFreeBooks({int limit = 20}) async {
+    try {
+      final snapshot = await _firestore
+          .collection(AppConstants.booksCollection)
+          .where('isFree', isEqualTo: true)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => BookModel.fromMap(doc.data(), doc.id))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get free books: $e');
+    }
+  }
+
+  /// Get premium books only
+  Future<List<BookModel>> getPremiumBooks({int limit = 20}) async {
+    try {
+      final snapshot = await _firestore
+          .collection(AppConstants.booksCollection)
+          .where('isPremiumOnly', isEqualTo: true)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => BookModel.fromMap(doc.data(), doc.id))
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to get premium books: $e');
+    }
+  }
+
+  /// Check if user can access a book (considers free books or premium status)
+  Future<bool> canUserAccessBook({
+    required String userId,
+    required BookModel book,
+  }) async {
+    try {
+      // Free books are accessible to everyone
+      if (book.isFree && !book.isPremiumOnly) {
+        return true;
+      }
+
+      // Premium books require active premium subscription
+      if (book.isPremiumOnly) {
+        final userDoc = await _firestore
+            .collection(AppConstants.usersCollection)
+            .doc(userId)
+            .get();
+
+        if (!userDoc.exists) {
+          return false;
+        }
+
+        final userData = userDoc.data()!;
+        final isPremium = userData['isPremium'] ?? false;
+        
+        if (!isPremium) return false;
+
+        // Check if premium is active (not expired)
+        final premiumExpiresAt = userData['premiumExpiresAt'] as Timestamp?;
+        if (premiumExpiresAt != null) {
+          final expiryDate = premiumExpiresAt.toDate();
+          if (DateTime.now().isAfter(expiryDate)) {
+            return false;
+          }
+        }
+        
+        return true;
+      }
+
+      return false;
+    } catch (e) {
+      throw Exception('Failed to check book access: $e');
+    }
+  }
+
+  /// Get books user can access (free + premium if user has premium)
+  Future<List<BookModel>> getUserAccessibleBooks(String userId) async {
+    try {
+      final userDoc = await _firestore
+          .collection(AppConstants.usersCollection)
+          .doc(userId)
+          .get();
+
+      if (!userDoc.exists) {
+        // Return only free books if user not found
+        return getFreeBooks();
+      }
+
+      final userData = userDoc.data()!;
+      final isPremium = userData['isPremium'] ?? false;
+
+      // Get all books
+      final allBooks = await getBooks(limit: 1000);
+
+      // Filter accessible books
+      final accessibleBooks = allBooks.where((book) {
+        // Free non-premium books
+        if (book.isFree && !book.isPremiumOnly) return true;
+
+        // Premium books if user has active premium
+        if (book.isPremiumOnly && isPremium) return true;
+
+        return false;
+      }).toList();
+
+      return accessibleBooks;
+    } catch (e) {
+      throw Exception('Failed to get accessible books: $e');
+    }
+  }
 }

@@ -50,7 +50,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading favorites: $e'),
+            content: Text('Gagal memuat favorit: $e'),
             backgroundColor: Colors.red,
           ),
         );
@@ -77,7 +77,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Removed from favorites'),
+              content: Text('Dihapus dari favorit'),
               backgroundColor: AppColors.success,
             ),
           );
@@ -86,7 +86,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Terjadi kesalahan: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -109,7 +109,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             fontWeight: FontWeight.w600,
             fontSize: 20,
           ),
-          child: const Text('My Favorites'),
+          child: const Text('Favorit Saya'),
         ),
         leading: IconButton(
           icon: AnimatedSwitcher(
@@ -156,7 +156,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Start adding books to your favorites!',
+            'Mulai tambahkan buku ke favorit Anda!',
             style: TextStyle(
               fontSize: 16,
               color: CardStyles.secondaryText(isDark),
@@ -170,7 +170,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               backgroundColor: AppColors.accentGold,
               foregroundColor: Colors.white,
             ),
-            child: const Text('Browse Books'),
+            child: const Text('Jelajahi Buku'),
           ),
         ],
       ),

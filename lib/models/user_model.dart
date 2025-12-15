@@ -11,7 +11,6 @@ class UserModel {
   final DateTime createdAt;
   final DateTime? premiumExpiresAt;
   final List<String> favoriteBooks;
-  final List<String> purchasedBooks;
   final List<String> downloadedBooks;
 
   UserModel({
@@ -24,7 +23,6 @@ class UserModel {
     required this.createdAt,
     this.premiumExpiresAt,
     this.favoriteBooks = const [],
-    this.purchasedBooks = const [],
     this.downloadedBooks = const [],
   });
 
@@ -41,7 +39,6 @@ class UserModel {
           ? (map['premiumExpiresAt'] as Timestamp).toDate() 
           : null,
       favoriteBooks: List<String>.from(map['favoriteBooks'] ?? []),
-      purchasedBooks: List<String>.from(map['purchasedBooks'] ?? []),
       downloadedBooks: List<String>.from(map['downloadedBooks'] ?? []),
     );
   }
@@ -59,7 +56,6 @@ class UserModel {
           ? Timestamp.fromDate(premiumExpiresAt!) 
           : null,
       'favoriteBooks': favoriteBooks,
-      'purchasedBooks': purchasedBooks,
       'downloadedBooks': downloadedBooks,
     };
   }
@@ -74,7 +70,6 @@ class UserModel {
     DateTime? createdAt,
     DateTime? premiumExpiresAt,
     List<String>? favoriteBooks,
-    List<String>? purchasedBooks,
     List<String>? downloadedBooks,
   }) {
     return UserModel(
@@ -87,7 +82,6 @@ class UserModel {
       createdAt: createdAt ?? this.createdAt,
       premiumExpiresAt: premiumExpiresAt ?? this.premiumExpiresAt,
       favoriteBooks: favoriteBooks ?? this.favoriteBooks,
-      purchasedBooks: purchasedBooks ?? this.purchasedBooks,
       downloadedBooks: downloadedBooks ?? this.downloadedBooks,
     );
   }

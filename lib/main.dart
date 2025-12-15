@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'core/theme/app_theme.dart';
 import 'core/middleware/auth_middleware.dart';
 import 'models/book_model.dart';
@@ -9,6 +10,8 @@ import 'providers/auth_provider.dart';
 import 'providers/book_provider.dart';
 import 'providers/favorite_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/transaction_provider.dart';
+import 'providers/premium_provider.dart';
 import 'screens/main_wrapper.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/register_screen.dart';
@@ -19,10 +22,15 @@ import 'screens/admin/admin_dashboard_screen.dart';
 import 'screens/admin/add_book_screen.dart';
 import 'screens/admin/manage_books_screen.dart';
 import 'screens/admin/manage_users_screen.dart';
+import 'screens/payment/premium_subscription_screen.dart';
+import 'screens/payment/transaction_detail_screen.dart';
 import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables
+  await dotenv.load(fileName: ".env");
 
   // Initialize Firebase
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -41,17 +49,32 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => BookProvider()),
         ChangeNotifierProvider(create: (_) => FavoriteProvider()),
+        ChangeNotifierProvider(create: (_) => TransactionProvider()),
+        ChangeNotifierProvider(create: (_) => PremiumProvider()),
       ],
       child: Consumer2<AuthProvider, ThemeProvider>(
         builder: (context, authProvider, themeProvider, child) {
-          // Initialize FavoriteProvider when user logs in
-          if (authProvider.isLoggedIn) {
+          // Initialize providers when user logs in
+          if (authProvider.isLoggedIn && authProvider.currentUser != null) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               final favoriteProvider = Provider.of<FavoriteProvider>(
                 context,
                 listen: false,
               );
+              final premiumProvider = Provider.of<PremiumProvider>(
+                context,
+                listen: false,
+              );
+              final transactionProvider = Provider.of<TransactionProvider>(
+                context,
+                listen: false,
+              );
+
+              // Load user data
               favoriteProvider.loadFavoriteBooks();
+              premiumProvider.loadPremiumStatus(authProvider.currentUser!.uid);
+              transactionProvider.loadUserTransactions(authProvider.currentUser!.uid);
+              transactionProvider.loadPendingTransactions(authProvider.currentUser!.uid);
             });
           }
 
@@ -165,6 +188,17 @@ class MyApp extends StatelessWidget {
             requireAdmin: true,
             child: ManageUsersScreen(),
           ),
+        ),
+        GoRoute(
+          path: '/premium',
+          builder: (context, state) => const PremiumSubscriptionScreen(),
+        ),
+        GoRoute(
+          path: '/transaction/:id',
+          builder: (context, state) {
+            final transactionId = state.pathParameters['id']!;
+            return TransactionDetailScreen(transactionId: transactionId);
+          },
         ),
       ],
     );

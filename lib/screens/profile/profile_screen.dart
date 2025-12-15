@@ -7,11 +7,33 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/favorite_provider.dart';
+import '../../providers/premium_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/card_styles.dart';
+import '../payment/premium_subscription_screen.dart';
+import '../payment/transactions_list_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
+
+  Future<void> _refreshProfile(BuildContext context) async {
+    // Get current user ID
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final userId = authProvider.currentUser?.uid;
+    
+    if (userId == null) return;
+
+    // Refresh premium status
+    final premiumProvider = Provider.of<PremiumProvider>(context, listen: false);
+    await premiumProvider.loadPremiumStatus(userId);
+
+    // Refresh favorites
+    final favoriteProvider = Provider.of<FavoriteProvider>(context, listen: false);
+    await favoriteProvider.loadFavoriteBooks();
+
+    // Small delay for smooth animation
+    await Future.delayed(const Duration(milliseconds: 300));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -61,25 +83,39 @@ class ProfileScreen extends StatelessWidget {
                 );
               }
 
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    // Header with back button
-                    _buildHeader(context, isDark),
-                    const SizedBox(height: 30),
+              return RefreshIndicator(
+                onRefresh: () => _refreshProfile(context),
+                color: AppColors.accentGold,
+                backgroundColor: isDark ? const Color(0xFF1E1E2E) : Colors.white,
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    children: [
+                      // Header with back button
+                      _buildHeader(context, isDark),
+                      const SizedBox(height: 30),
 
-                    // Profile card
-                    _buildProfileCard(user, isDark),
-                    const SizedBox(height: 24),
+                      // Profile card
+                      _buildProfileCard(user, isDark),
+                      const SizedBox(height: 24),
 
-                    // Favorites only stat
-                    _buildFavoriteStat(user, isDark),
-                    const SizedBox(height: 24),
+                      // Favorites only stat
+                      _buildFavoriteStat(user, isDark),
+                      const SizedBox(height: 24),
 
-                    // Settings and logout
-                    _buildSettingsSection(context, authProvider, isDark),
-                  ],
+                      // Premium status card
+                      _buildPremiumCard(context, user, isDark),
+                      const SizedBox(height: 24),
+
+                      // Menu items
+                      _buildMenuSection(context, user, isDark),
+                      const SizedBox(height: 24),
+
+                      // Settings and logout
+                      _buildSettingsSection(context, authProvider, isDark),
+                    ],
+                  ),
                 ),
               );
             },
@@ -126,7 +162,7 @@ class ProfileScreen extends StatelessWidget {
             color: CardStyles.primaryText(isDark),
             letterSpacing: -1,
           ),
-          child: const Text('Profile'),
+          child: const Text('Profil'),
         ),
       ],
     );
@@ -306,6 +342,213 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
+  Widget _buildPremiumCard(BuildContext context, dynamic user, bool isDark) {
+    return Consumer<PremiumProvider>(
+      builder: (context, premiumProvider, child) {
+        final isPremium = premiumProvider.isPremium;
+        final daysRemaining = premiumProvider.daysRemaining;
+
+        return Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isPremium
+                  ? [
+                      AppColors.accentGold,
+                      AppColors.accentGold.withOpacity(0.7),
+                    ]
+                  : [
+                      CardStyles.primaryText(isDark).withOpacity(0.1),
+                      CardStyles.primaryText(isDark).withOpacity(0.05),
+                    ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: isPremium
+                ? [
+                    BoxShadow(
+                      color: AppColors.accentGold.withOpacity(0.3),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ]
+                : [],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    FontAwesomeIcons.crown,
+                    color: isPremium ? Colors.black87 : CardStyles.secondaryText(isDark),
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      isPremium ? 'Premium Member' : 'Free Member',
+                      style: TextStyle(
+                        color: isPremium ? Colors.black87 : CardStyles.primaryText(isDark),
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              if (isPremium) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'Berlaku hingga $daysRemaining hari lagi',
+                  style: TextStyle(
+                    color: Colors.black87.withOpacity(0.7),
+                    fontSize: 14,
+                  ),
+                ),
+              ] else ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Upgrade ke Premium untuk akses semua buku',
+                  style: TextStyle(
+                    color: CardStyles.secondaryText(isDark),
+                    fontSize: 14,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const PremiumSubscriptionScreen(),
+                      ),
+                    );
+                  },
+                  icon: Icon(
+                    isPremium ? FontAwesomeIcons.arrowsRotate : FontAwesomeIcons.star,
+                    size: 16,
+                  ),
+                  label: Text(isPremium ? 'Perpanjang' : 'Upgrade Premium'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isPremium ? Colors.black87 : AppColors.accentGold,
+                    foregroundColor: isPremium ? AppColors.accentGold : Colors.black87,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMenuSection(BuildContext context, dynamic user, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
+            'Menu',
+            style: TextStyle(
+              color: CardStyles.secondaryText(isDark),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
+        _buildMenuItem(
+          'Riwayat Transaksi',
+          FontAwesomeIcons.receipt,
+          Colors.blue,
+          () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const TransactionsListScreen(),
+              ),
+            );
+          },
+          isDark,
+        ),
+        const SizedBox(height: 12),
+        _buildMenuItem(
+          'Langganan Premium',
+          FontAwesomeIcons.crown,
+          AppColors.accentGold,
+          () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const PremiumSubscriptionScreen(),
+              ),
+            );
+          },
+          isDark,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMenuItem(
+    String title,
+    IconData icon,
+    Color iconColor,
+    VoidCallback onTap,
+    bool isDark,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: CardStyles.modernCard(isDark),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                icon,
+                color: iconColor,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: CardStyles.primaryText(isDark),
+                ),
+              ),
+            ),
+            Icon(
+              FontAwesomeIcons.chevronRight,
+              size: 16,
+              color: CardStyles.secondaryText(isDark).withOpacity(0.5),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildSettingsSection(
     BuildContext context,
     AuthProvider authProvider,
@@ -314,7 +557,20 @@ class ProfileScreen extends StatelessWidget {
     final user = authProvider.currentUser;
 
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 12),
+          child: Text(
+            'Pengaturan',
+            style: TextStyle(
+              color: CardStyles.secondaryText(isDark),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1,
+            ),
+          ),
+        ),
         _buildThemeToggleItem(context, isDark),
         const SizedBox(height: 12),
 
@@ -324,8 +580,6 @@ class ProfileScreen extends StatelessWidget {
             // Navigate to admin dashboard
             context.push('/admin');
           }, isDark),
-          const SizedBox(height: 24),
-        ] else ...[
           const SizedBox(height: 12),
         ],
 
@@ -542,7 +796,7 @@ class ProfileScreen extends StatelessWidget {
                         ? AppColors.accentWhite
                         : AppColors.primaryBlack,
                   ),
-                  child: const Text('Theme Mode'),
+                  child: const Text('Mode Tema'),
                 ),
                 const SizedBox(height: 2),
                 AnimatedSwitcher(
@@ -559,7 +813,7 @@ class ProfileScreen extends StatelessWidget {
                     );
                   },
                   child: Text(
-                    isDark ? 'Dark mode' : 'Light mode',
+                    isDark ? 'Mode gelap' : 'Mode terang',
                     key: ValueKey(isDark),
                     style: TextStyle(
                       fontSize: 12,

@@ -66,23 +66,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
-  Future<void> _signInWithGoogle() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-
-    final success = await authProvider.signInWithGoogle();
-
-    if (success && mounted) {
-      context.go('/home');
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(authProvider.errorMessage ?? 'Google Sign-In failed'),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -365,85 +348,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
 
-            const SizedBox(height: 24),
-
-            // Or Divider
-            Row(
-              children: [
-                Expanded(
-                  child: Divider(
-                    color: isDark
-                        ? AppColors.accentWhite.withOpacity(0.3)
-                        : AppColors.primaryBlack.withOpacity(0.3),
-                    thickness: 1,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'OR',
-                    style: TextStyle(
-                      color: isDark
-                          ? AppColors.accentWhite.withOpacity(0.7)
-                          : AppColors.primaryBlack.withOpacity(0.7),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Divider(
-                    color: isDark
-                        ? AppColors.accentWhite.withOpacity(0.3)
-                        : AppColors.primaryBlack.withOpacity(0.3),
-                    thickness: 1,
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 24),
-
-            // Google Sign-In Button
-            SizedBox(
-              height: 52,
-              child: OutlinedButton.icon(
-                onPressed: authProvider.isLoading ? null : _signInWithGoogle,
-                style: OutlinedButton.styleFrom(
-                  backgroundColor: isDark
-                      ? CardStyles.cardBackground(isDark)
-                      : Colors.white,
-                  foregroundColor: isDark
-                      ? AppColors.accentWhite
-                      : AppColors.primaryBlack,
-                  side: BorderSide(
-                    color: isDark
-                        ? AppColors.accentWhite.withOpacity(0.3)
-                        : AppColors.primaryBlack.withOpacity(0.3),
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                icon: Icon(
-                  FontAwesomeIcons.google,
-                  size: 18,
-                  color: isDark
-                      ? AppColors.accentWhite
-                      : AppColors.primaryBlack,
-                ),
-                label: Text(
-                  'Continue with Google',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: isDark
-                        ? AppColors.accentWhite
-                        : AppColors.primaryBlack,
-                  ),
-                ),
-              ),
-            ),
           ],
         ),
       ),

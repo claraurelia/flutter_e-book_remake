@@ -6,9 +6,12 @@ import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'dart:async';
 import '../../providers/theme_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/book_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../models/book_model.dart';
 import '../../widgets/glass_widgets.dart';
+import '../payment/premium_subscription_screen.dart';
 
 class PDFReaderScreen extends StatefulWidget {
   final BookModel book;
@@ -33,7 +36,93 @@ class _PDFReaderScreenState extends State<PDFReaderScreen> {
   @override
   void initState() {
     super.initState();
+    _checkAccessAndLoadPDF();
+  }
+
+  Future<void> _checkAccessAndLoadPDF() async {
+    // Check if user can access this book
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final bookProvider = Provider.of<BookProvider>(context, listen: false);
+
+    if (authProvider.currentUser == null) {
+      setState(() {
+        _hasError = true;
+        _errorMessage = 'Silakan login untuk membaca buku ini';
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Check access permission
+    final canAccess = await bookProvider.canUserAccessBook(
+      userId: authProvider.currentUser!.uid,
+      book: widget.book,
+    );
+
+    if (!canAccess && widget.book.requiresPremium) {
+      setState(() {
+        _hasError = true;
+        _errorMessage = 'Langganan Premium diperlukan untuk mengakses buku ini';
+        _isLoading = false;
+      });
+      
+      // Show upgrade dialog
+      if (mounted) {
+        _showPremiumRequiredDialog();
+      }
+      return;
+    }
+
+    // If access is granted, load the PDF
     _loadPDF();
+  }
+
+  void _showPremiumRequiredDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF1E1E1E),
+        title: Row(
+          children: [
+            Icon(Icons.workspace_premium, color: AppColors.warning),
+            SizedBox(width: 8),
+            Text(
+              'Premium Diperlukan',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+        content: Text(
+          'Ini adalah buku premium. Upgrade ke Premium untuk mengakses semua buku premium.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pop(context); // Go back from PDF reader
+            },
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context); // Close dialog
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const PremiumSubscriptionScreen(),
+                ),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.warning,
+            ),
+            child: const Text('Upgrade Premium'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _loadPDF() async {
@@ -164,27 +253,6 @@ class _PDFReaderScreenState extends State<PDFReaderScreen> {
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        actions: [
-          if (!_isLoading && !_hasError)
-            IconButton(
-              icon: Icon(
-                Icons.bookmark_border,
-                color: isDark ? AppColors.accentWhite : AppColors.primaryBlack,
-              ),
-              onPressed: () {
-                // TODO: Implement bookmark functionality
-              },
-            ),
-          IconButton(
-            icon: Icon(
-              Icons.more_vert,
-              color: isDark ? AppColors.accentWhite : AppColors.primaryBlack,
-            ),
-            onPressed: () {
-              _showOptionsMenu(context, isDark);
-            },
-          ),
-        ],
       ),
       body: Container(
         decoration: BoxDecoration(
@@ -438,98 +506,5 @@ class _PDFReaderScreenState extends State<PDFReaderScreen> {
     if (_currentPage < _totalPages - 1) {
       _pdfViewController.setPage(_currentPage + 1);
     }
-  }
-
-  void _showOptionsMenu(BuildContext context, bool isDark) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        margin: const EdgeInsets.all(16),
-        child: GlassContainer(
-          blurSigma: 20,
-          borderRadius: 20,
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: isDark
-                        ? AppColors.accentWhite.withOpacity(0.3)
-                        : AppColors.primaryBlack.withOpacity(0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 24),
-                _buildOptionItem(
-                  icon: Icons.bookmark_add_outlined,
-                  title: 'Add Bookmark',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // TODO: Implement bookmark functionality
-                  },
-                  isDark: isDark,
-                ),
-                _buildOptionItem(
-                  icon: Icons.content_copy,
-                  title: 'Copy Page',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // TODO: Implement copy functionality
-                  },
-                  isDark: isDark,
-                ),
-                _buildOptionItem(
-                  icon: Icons.search,
-                  title: 'Search in Book',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // TODO: Implement search functionality
-                  },
-                  isDark: isDark,
-                ),
-                _buildOptionItem(
-                  icon: Icons.brightness_6,
-                  title: 'Reading Mode',
-                  onTap: () {
-                    Navigator.pop(context);
-                    // TODO: Implement reading mode toggle
-                  },
-                  isDark: isDark,
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildOptionItem({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    required bool isDark,
-  }) {
-    return ListTile(
-      leading: Icon(
-        icon,
-        color: isDark ? AppColors.accentWhite : AppColors.primaryBlack,
-      ),
-      title: Text(
-        title,
-        style: TextStyle(
-          color: isDark ? AppColors.accentWhite : AppColors.primaryBlack,
-          fontSize: 16,
-          fontWeight: FontWeight.w500,
-        ),
-      ),
-      onTap: onTap,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    );
   }
 }

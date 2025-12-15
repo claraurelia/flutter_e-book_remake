@@ -21,6 +21,11 @@ class BookProvider extends ChangeNotifier {
   String _currentCategory = '';
   String _searchQuery = '';
 
+  // Premium-related state
+  List<BookModel> _freeBooks = [];
+  List<BookModel> _premiumBooks = [];
+  List<BookModel> _accessibleBooks = [];
+
   // Getters
   List<BookModel> get books => _books;
   List<BookModel> get featuredBooks => _featuredBooks;
@@ -33,6 +38,11 @@ class BookProvider extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String get currentCategory => _currentCategory;
   String get searchQuery => _searchQuery;
+  
+  // Premium-related getters
+  List<BookModel> get freeBooks => _freeBooks;
+  List<BookModel> get premiumBooks => _premiumBooks;
+  List<BookModel> get accessibleBooks => _accessibleBooks;
 
   // Initialize data
   Future<void> initialize() async {
@@ -392,6 +402,71 @@ class BookProvider extends ChangeNotifier {
       }
     } catch (e) {
       _setError(e.toString());
+    }
+  }
+
+  // ============ PAYMENT & PURCHASE METHODS ============
+
+  /// Load free books
+  Future<void> loadFreeBooks({int limit = 20}) async {
+    try {
+      _freeBooks = await _bookService.getFreeBooks(limit: limit);
+      notifyListeners();
+    } catch (e) {
+      _setError(e.toString());
+    }
+  }
+
+  /// Load premium books
+  Future<void> loadPremiumBooks({int limit = 20}) async {
+    try {
+      _premiumBooks = await _bookService.getPremiumBooks(limit: limit);
+      notifyListeners();
+    } catch (e) {
+      _setError(e.toString());
+    }
+  }
+
+  /// Check if user can access a book
+  Future<bool> canUserAccessBook({
+    required String userId,
+    required BookModel book,
+  }) async {
+    try {
+      return await _bookService.canUserAccessBook(
+        userId: userId,
+        book: book,
+      );
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    }
+  }
+
+  /// Load user's accessible books (free + premium if premium user)
+  Future<void> loadAccessibleBooks(String userId) async {
+    try {
+      _accessibleBooks = await _bookService.getUserAccessibleBooks(userId);
+      notifyListeners();
+    } catch (e) {
+      _setError(e.toString());
+    }
+  }
+
+  /// Check if book requires premium (helper)
+  bool doesBookRequirePremium(BookModel book) {
+    return book.requiresPremium;
+  }
+
+  /// Filter books by access type
+  List<BookModel> filterBooksByAccess(String accessType) {
+    switch (accessType.toLowerCase()) {
+      case 'free':
+        return _books.where((b) => b.isFreeAccess).toList();
+      case 'premium':
+        return _books.where((b) => b.requiresPremium).toList();
+      default:
+        return _books;
     }
   }
 }

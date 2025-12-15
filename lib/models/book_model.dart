@@ -20,6 +20,10 @@ class BookModel {
   final List<String> tags;
   final String language;
   final double fileSizeInMB;
+  
+  // Access Control Fields
+  final bool isFree;
+  final bool isPremiumOnly;
 
   BookModel({
     required this.id,
@@ -41,6 +45,8 @@ class BookModel {
     this.tags = const [],
     this.language = 'English',
     this.fileSizeInMB = 0.0,
+    this.isFree = true,
+    this.isPremiumOnly = false,
   });
 
   factory BookModel.fromMap(Map<String, dynamic> map, String documentId) {
@@ -64,6 +70,8 @@ class BookModel {
       tags: List<String>.from(map['tags'] ?? []),
       language: map['language'] ?? 'English',
       fileSizeInMB: (map['fileSizeInMB'] ?? 0.0).toDouble(),
+      isFree: map['isFree'] ?? true,
+      isPremiumOnly: map['isPremiumOnly'] ?? false,
     );
   }
 
@@ -87,6 +95,8 @@ class BookModel {
       'tags': tags,
       'language': language,
       'fileSizeInMB': fileSizeInMB,
+      'isFree': isFree,
+      'isPremiumOnly': isPremiumOnly,
     };
   }
 
@@ -110,6 +120,8 @@ class BookModel {
     List<String>? tags,
     String? language,
     double? fileSizeInMB,
+    bool? isFree,
+    bool? isPremiumOnly,
   }) {
     return BookModel(
       id: id ?? this.id,
@@ -131,11 +143,9 @@ class BookModel {
       tags: tags ?? this.tags,
       language: language ?? this.language,
       fileSizeInMB: fileSizeInMB ?? this.fileSizeInMB,
+      isFree: isFree ?? this.isFree,
+      isPremiumOnly: isPremiumOnly ?? this.isPremiumOnly,
     );
-  }
-
-  String get formattedPrice {
-    return 'Free';
   }
 
   String get formattedFileSize {
@@ -147,5 +157,16 @@ class BookModel {
 
   String get formattedRating {
     return rating.toStringAsFixed(1);
+  }
+
+  // Access control getters
+  bool get requiresPremium => isPremiumOnly;
+  
+  bool get isFreeAccess => isFree && !isPremiumOnly;
+  
+  String get accessLabel {
+    if (isFree && !isPremiumOnly) return 'FREE';
+    if (isPremiumOnly) return 'PREMIUM';
+    return 'FREE';
   }
 }

@@ -14,6 +14,34 @@ service cloud.firestore {
       return favoriteId.split('_')[0];
     }
     
+    // Helper function to check if user has active premium
+    function hasActivePremium(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId)) &&
+        get(/databases/$(database)/documents/users/$(userId)).data.isPremium == true && 
+        (get(/databases/$(database)/documents/users/$(userId)).data.premiumExpiresAt == null || 
+         get(/databases/$(database)/documents/users/$(userId)).data.premiumExpiresAt > request.time);
+    }
+    
+    // Helper function to check if book is free
+    function isBookFree(bookId) {
+      return exists(/databases/$(database)/documents/books/$(bookId)) &&
+        get(/databases/$(database)/documents/books/$(bookId)).data.isFree == true && 
+        get(/databases/$(database)/documents/books/$(bookId)).data.isPremiumOnly == false;
+    }
+    
+    // Helper function to check if user can access book
+    function canAccessBook(userId, bookId) {
+      return exists(/databases/$(database)/documents/books/$(bookId)) &&
+        (
+          // Free books are accessible to everyone
+          (get(/databases/$(database)/documents/books/$(bookId)).data.isFree == true && 
+           get(/databases/$(database)/documents/books/$(bookId)).data.isPremiumOnly == false) || 
+          // Premium books require active premium subscription
+          (get(/databases/$(database)/documents/books/$(bookId)).data.isPremiumOnly == true && 
+           hasActivePremium(userId))
+        );
+    }
+    
     // Users collection - more secure
     match /users/{userId} {
       // Users can read and write their own document
@@ -44,24 +72,37 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
-    // Books collection - admin protection
+    // Books collection - admin protection + premium access control
     match /books/{bookId} {
-      // Anyone can read books (for public browsing)
+      // Anyone can read book metadata (for browsing, but not file URLs)
       allow read: if true;
       
       // Only admins can create/delete books
       allow create, delete: if isAdmin();
       
-      // Allow authenticated users to update favorite count
-      // but only admins can update other fields
-      allow update: if request.auth != null && (
-        // Admin can update anything
-        isAdmin() ||
-        // Regular users can only update specific fields (favoriteCount, viewCount)
-        (resource.data.keys().hasAll(request.resource.data.keys()) &&
-         request.resource.data.keys().hasOnly(['favoriteCount', 'viewCount']) &&
-         request.resource.data.keys().hasAny(['favoriteCount', 'viewCount']))
-      );
+      // Allow admins to update any field
+      // Allow authenticated users to update specific counters (favoriteCount, viewCount)
+      allow update: if isAdmin() || 
+        (request.auth != null && 
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['favoriteCount', 'viewCount']));
+    }
+    
+    // Premium Activations collection - track premium subscriptions
+    match /premium_activations/{activationId} {
+      // Users can read their own premium activation records
+      allow read: if request.auth != null && resource.data.userId == request.auth.uid;
+      
+      // Only system/backend can create premium activations (via service account)
+      // Or allow authenticated users to create with proper validation
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['userId', 'transactionId', 'activatedAt', 'expiresAt', 'amount', 'status']);
+      
+      // Admins can read all premium activations
+      allow read: if isAdmin();
+      
+      // Only admins can update/delete activations
+      allow update, delete: if isAdmin();
     }
     
     // Categories collection
@@ -102,6 +143,36 @@ service cloud.firestore {
         
       // Admins can read all purchases (for analytics)
       allow read: if isAdmin();
+    }
+    
+    // Transactions collection - Payment gateway transactions (Premium subscriptions)
+    match /transactions/{transactionId} {
+      // Users can read their own transactions
+      // For single document read (get): use resource.data
+      // For list queries (where): Firestore automatically filters by userId in the query
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || isAdmin());
+      
+      // Allow list queries for users to see their own transactions
+      allow list: if request.auth != null &&
+        (request.query.limit <= 100);
+      
+      // Allow creating premium subscription transactions with proper validation
+      allow create: if request.auth != null &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.keys().hasAll(['userId', 'orderId', 'amount', 'status', 'paymentType', 'createdAt']) &&
+        // For premium transactions, bookId should be 'premium-subscription'
+        (request.resource.data.bookId == 'premium-subscription' || request.resource.data.get('bookId', null) != null);
+      
+      // Users can update their own transactions (for status updates from payment callback)
+      allow update: if request.auth != null && 
+        resource.data.userId == request.auth.uid &&
+        // Only allow updating specific fields (status, paidAt, midtransResponse, etc.)
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.orderId == resource.data.orderId;
+        
+      // Admins can read and update all transactions
+      allow read, update: if isAdmin();
     }
     
     // Downloads collection  

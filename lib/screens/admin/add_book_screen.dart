@@ -27,6 +27,8 @@ class _AddBookScreenState extends State<AddBookScreen> {
   String _selectedLanguage = 'English';
   bool _isLoading = false;
   bool _isEditMode = false;
+  bool _isPremiumOnly = false;
+  bool _isFree = true;
 
   final List<String> _categories = [
     'Fiction',
@@ -83,6 +85,8 @@ class _AddBookScreenState extends State<AddBookScreen> {
 
     _selectedCategory = book.category;
     _selectedLanguage = book.language;
+    _isPremiumOnly = book.isPremiumOnly;
+    _isFree = book.isFree;
   }
 
   @override
@@ -121,13 +125,15 @@ class _AddBookScreenState extends State<AddBookScreen> {
           fileUrl: _pdfUrlController.text.trim(),
           language: _selectedLanguage,
           tags: tags,
+          isFree: _isFree,
+          isPremiumOnly: _isPremiumOnly,
         );
 
         await bookProvider.updateBook(
           bookId: widget.bookToEdit!.id,
           updatedBook: updatedBook,
         );
-        _showSnackBar('Book updated successfully!');
+        _showSnackBar('Buku berhasil diperbarui!');
       } else {
         // Create new book
         final newBook = BookModel(
@@ -143,17 +149,19 @@ class _AddBookScreenState extends State<AddBookScreen> {
           updatedAt: DateTime.now(),
           language: _selectedLanguage,
           tags: tags,
+          isFree: _isFree,
+          isPremiumOnly: _isPremiumOnly,
         );
 
         await bookProvider.addBookDirectly(newBook);
-        _showSnackBar('Book added successfully!');
+        _showSnackBar('Buku berhasil ditambahkan!');
       }
 
       if (mounted) {
         context.pop();
       }
     } catch (e) {
-      _showSnackBar('Error saving book: $e', isError: true);
+      _showSnackBar('Error saat menyimpan buku: $e', isError: true);
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -178,7 +186,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         backgroundColor: theme.appBarTheme.backgroundColor,
-        title: Text(_isEditMode ? 'Edit Book' : 'Add Book'),
+        title: Text(_isEditMode ? 'Edit Buku' : 'Tambah Buku'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
@@ -194,9 +202,9 @@ class _AddBookScreenState extends State<AddBookScreen> {
               ),
             )
           else
-            TextButton(
+              TextButton(
               onPressed: _saveBook,
-              child: Text(_isEditMode ? 'Update' : 'Save'),
+              child: Text(_isEditMode ? 'Perbarui' : 'Simpan'),
             ),
         ],
       ),
@@ -217,7 +225,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Basic Information',
+                      'Informasi Dasar',
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -228,13 +236,13 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     TextFormField(
                       controller: _titleController,
                       decoration: const InputDecoration(
-                        labelText: 'Book Title *',
-                        hintText: 'Enter book title',
+                        labelText: 'Judul Buku *',
+                        hintText: 'Masukkan judul buku',
                         border: OutlineInputBorder(),
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Please enter book title';
+                          return 'Silakan masukkan judul buku';
                         }
                         return null;
                       },
@@ -245,13 +253,13 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     TextFormField(
                       controller: _authorController,
                       decoration: const InputDecoration(
-                        labelText: 'Author *',
-                        hintText: 'Enter author name',
+                        labelText: 'Penulis *',
+                        hintText: 'Masukkan nama penulis',
                         border: OutlineInputBorder(),
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Please enter author name';
+                          return 'Silakan masukkan nama penulis';
                         }
                         return null;
                       },
@@ -263,13 +271,13 @@ class _AddBookScreenState extends State<AddBookScreen> {
                       controller: _descriptionController,
                       maxLines: 4,
                       decoration: const InputDecoration(
-                        labelText: 'Description *',
-                        hintText: 'Enter book description',
+                        labelText: 'Deskripsi *',
+                        hintText: 'Masukkan deskripsi buku',
                         border: OutlineInputBorder(),
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Please enter book description';
+                          return 'Silakan masukkan deskripsi buku';
                         }
                         return null;
                       },
@@ -290,7 +298,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Media URLs',
+                      'URL Media',
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -301,18 +309,18 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     TextFormField(
                       controller: _coverImageUrlController,
                       decoration: const InputDecoration(
-                        labelText: 'Cover Image URL *',
+                        labelText: 'URL Gambar Cover *',
                         hintText: 'https://example.com/cover.jpg',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.image),
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Please enter cover image URL';
+                          return 'Silakan masukkan URL gambar cover';
                         }
                         final uri = Uri.tryParse(value);
                         if (uri == null || !uri.hasAbsolutePath) {
-                          return 'Please enter a valid URL';
+                          return 'Silakan masukkan URL yang valid';
                         }
                         return null;
                       },
@@ -323,18 +331,18 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     TextFormField(
                       controller: _pdfUrlController,
                       decoration: const InputDecoration(
-                        labelText: 'PDF File URL *',
+                        labelText: 'URL File PDF *',
                         hintText: 'https://example.com/book.pdf',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.picture_as_pdf),
                       ),
                       validator: (value) {
                         if (value == null || value.trim().isEmpty) {
-                          return 'Please enter PDF file URL';
+                          return 'Silakan masukkan URL file PDF';
                         }
                         final uri = Uri.tryParse(value);
                         if (uri == null || !uri.hasAbsolutePath) {
-                          return 'Please enter a valid URL';
+                          return 'Silakan masukkan URL yang valid';
                         }
                         return null;
                       },
@@ -355,7 +363,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Category & Settings',
+                      'Kategori & Pengaturan',
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
@@ -366,7 +374,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     DropdownButtonFormField<String>(
                       value: _selectedCategory,
                       decoration: const InputDecoration(
-                        labelText: 'Category',
+                        labelText: 'Kategori',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.category),
                       ),
@@ -388,7 +396,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     DropdownButtonFormField<String>(
                       value: _selectedLanguage,
                       decoration: const InputDecoration(
-                        labelText: 'Language',
+                        labelText: 'Bahasa',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.language),
                       ),
@@ -410,11 +418,154 @@ class _AddBookScreenState extends State<AddBookScreen> {
                     TextFormField(
                       controller: _tagsController,
                       decoration: const InputDecoration(
-                        labelText: 'Tags (Optional)',
+                        labelText: 'Tag (Opsional)',
                         hintText: 'programming, tutorial, beginner',
                         border: OutlineInputBorder(),
                         prefixIcon: Icon(Icons.tag),
-                        helperText: 'Separate tags with commas',
+                        helperText: 'Pisahkan tag dengan koma',
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Access Control Section
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: CardStyles.modernCard(
+                  theme.brightness == Brightness.dark,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.lock_outline,
+                          color: theme.colorScheme.primary,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Kontrol Akses',
+                          style: theme.textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Atur siapa yang dapat mengakses buku ini',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // Premium Only Switch
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: _isPremiumOnly
+                            ? theme.colorScheme.primaryContainer.withOpacity(0.3)
+                            : theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _isPremiumOnly
+                              ? theme.colorScheme.primary.withOpacity(0.5)
+                              : theme.colorScheme.outline.withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: _isPremiumOnly
+                                  ? theme.colorScheme.primary.withOpacity(0.2)
+                                  : theme.colorScheme.surfaceVariant,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.workspace_premium,
+                              color: _isPremiumOnly
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Buku Premium',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _isPremiumOnly
+                                      ? 'Hanya pengguna premium yang dapat mengakses'
+                                      : 'Semua pengguna dapat mengakses buku ini',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.onSurface
+                                        .withOpacity(0.7),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: _isPremiumOnly,
+                            onChanged: (value) {
+                              setState(() {
+                                _isPremiumOnly = value;
+                                if (value) {
+                                  _isFree = false; // Premium books are not free
+                                } else {
+                                  _isFree = true; // Non-premium books are free by default
+                                }
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 16),
+
+                    // Information Card
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceVariant.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.info_outline,
+                            size: 20,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _isPremiumOnly
+                                  ? 'Buku ini akan ditandai sebagai PREMIUM. Pengguna harus berlangganan untuk mengaksesnya.'
+                                  : 'Buku ini akan ditandai sebagai FREE. Semua pengguna dapat mengaksesnya tanpa berlangganan.',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -442,7 +593,7 @@ class _AddBookScreenState extends State<AddBookScreen> {
                             ),
                           ),
                         )
-                      : Text(_isEditMode ? 'Update Book' : 'Add Book'),
+                      : Text(_isEditMode ? 'Perbarui Buku' : 'Tambah Buku'),
                 ),
               ),
 

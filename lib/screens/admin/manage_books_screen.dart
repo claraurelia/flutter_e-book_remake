@@ -49,7 +49,7 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error loading books: $e'),
+            content: Text('Gagal memuat buku: $e'),
             backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
@@ -81,24 +81,24 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
       builder: (context) => AlertDialog(
         backgroundColor: theme.colorScheme.surface,
         title: Text(
-          'Delete Book',
+          'Hapus Buku',
           style: TextStyle(color: theme.colorScheme.onSurface),
         ),
         content: Text(
-          'Are you sure you want to delete "${book.title}"? This action cannot be undone.',
+          'Apakah Anda yakin ingin menghapus "${book.title}"? Tindakan ini tidak dapat dibatalkan.',
           style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7)),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
+            child: const Text('Batal'),
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: TextButton.styleFrom(
               foregroundColor: theme.colorScheme.error,
             ),
-            child: const Text('Delete'),
+            child: const Text('Hapus'),
           ),
         ],
       ),
@@ -117,7 +117,7 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Book deleted successfully'),
+              content: Text('Buku berhasil dihapus'),
               backgroundColor: Theme.of(context).colorScheme.primary,
             ),
           );
@@ -126,7 +126,7 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error deleting book: $e'),
+              content: Text('Gagal menghapus buku: $e'),
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
@@ -336,16 +336,34 @@ class _ManageBooksScreenState extends State<ManageBooksScreen> {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: theme.colorScheme.primary,
+                          color: book.isPremiumOnly
+                              ? const Color(0xFFD4AF37) // Gold for premium
+                              : theme.colorScheme.primary, // Primary for free
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Text(
-                          'FREE',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onPrimary,
-                          ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (book.isPremiumOnly)
+                              const Padding(
+                                padding: EdgeInsets.only(right: 4),
+                                child: Icon(
+                                  Icons.workspace_premium,
+                                  size: 12,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            Text(
+                              book.isPremiumOnly ? 'PREMIUM' : 'FREE',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: book.isPremiumOnly
+                                    ? Colors.black87
+                                    : theme.colorScheme.onPrimary,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],

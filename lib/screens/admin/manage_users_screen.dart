@@ -29,23 +29,44 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
     super.dispose();
   }
 
-  void _searchUsers(String query) async {
+  Future<void> _searchUsers(String query) async {
     if (query.isEmpty) {
-      setState(() {
-        _searchResults = [];
-        _isSearching = false;
-      });
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+          _isSearching = false;
+        });
+      }
       return;
     }
 
-    setState(() => _isSearching = true);
+    if (mounted) {
+      setState(() => _isSearching = true);
+    }
 
-    final results = await _userService.searchUsers(query);
-
-    setState(() {
-      _searchResults = results;
-      _isSearching = false;
-    });
+    try {
+      final results = await _userService.searchUsers(query);
+      if (mounted) {
+        setState(() {
+          _searchResults = results;
+          _isSearching = false;
+        });
+      }
+    } catch (e) {
+      print('Error searching users: $e');
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+          _isSearching = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal mencari pengguna: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -78,9 +99,12 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
                     // Search Bar
                     TextField(
                       controller: _searchController,
-                      onChanged: _searchUsers,
+                      onChanged: (value) {
+                        _searchUsers(value);
+                        setState(() {}); // Rebuild untuk update suffix icon
+                      },
                       decoration: InputDecoration(
-                        hintText: 'Search users by name or email...',
+                        hintText: 'Cari pengguna (nama atau email)...',
                         prefixIcon: const Icon(Icons.search),
                         suffixIcon: _searchController.text.isNotEmpty
                             ? IconButton(
@@ -168,20 +192,50 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
   }
 
   Widget _buildUsersList() {
+    Stream<List<UserModel>> stream;
+    
+    if (_selectedRoleFilter == 'all' || _selectedRoleFilter == 'premium') {
+      stream = _userService.getAllUsers();
+    } else {
+      stream = _userService.getUsersByRole(_selectedRoleFilter);
+    }
+
     return StreamBuilder<List<UserModel>>(
-      stream: _selectedRoleFilter == 'all'
-          ? _userService.getAllUsers()
-          : _selectedRoleFilter == 'premium'
-          ? _userService
-                .getAllUsers() // Filter premium locally
-          : _userService.getUsersByRole(_selectedRoleFilter),
+      stream: stream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const LoadingWidget();
         }
 
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
+          print('StreamBuilder error: ${snapshot.error}');
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text(
+                  'Terjadi kesalahan saat memuat data',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${snapshot.error}',
+                  style: Theme.of(context).textTheme.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {}); // Rebuild untuk retry
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Coba Lagi'),
+                ),
+              ],
+            ),
+          );
         }
 
         List<UserModel> users = snapshot.data ?? [];
@@ -192,7 +246,7 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         }
 
         if (users.isEmpty) {
-          return const Center(child: Text('No users found'));
+          return const Center(child: Text('Tidak ada pengguna ditemukan'));
         }
 
         return ListView.builder(
@@ -450,8 +504,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         SnackBar(
           content: Text(
             success
-                ? 'User role updated successfully'
-                : 'Failed to update user role',
+                ? 'Role pengguna berhasil diperbarui'
+                : 'Gagal memperbarui role pengguna',
           ),
           backgroundColor: success ? Colors.green : Colors.red,
         ),
@@ -477,8 +531,8 @@ class _ManageUsersScreenState extends State<ManageUsersScreen> {
         SnackBar(
           content: Text(
             success
-                ? 'Premium status updated successfully'
-                : 'Failed to update premium status',
+                ? 'Status premium berhasil diperbarui'
+                : 'Gagal memperbarui status premium',
           ),
           backgroundColor: success ? Colors.green : Colors.red,
         ),

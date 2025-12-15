@@ -3,9 +3,12 @@ import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/book_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../models/book_model.dart';
-import '../../core/constants/app_colors.dart';
+import '../../core/theme/app_colors.dart';
+import '../../core/theme/card_styles.dart';
 import '../../widgets/common/loading_widget.dart';
+import '../payment/premium_subscription_screen.dart';
 import 'pdf_reader_screen.dart';
 
 class BookDetailScreen extends StatefulWidget {
@@ -20,7 +23,7 @@ class BookDetailScreen extends StatefulWidget {
 class _BookDetailScreenState extends State<BookDetailScreen> {
   BookModel? _book;
   bool _isLoading = true;
-  bool _isFavorite = false;
+  bool _canAccess = false;
 
   @override
   void initState() {
@@ -35,85 +38,65 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     final book = await bookProvider.getBookById(widget.bookId);
 
     // Check if book is in favorites
-    bool isFavorite = false;
+    bool canAccess = false;
+    
     if (authProvider.currentUser != null && book != null) {
-      isFavorite = await bookProvider.isBookFavorite(
-        authProvider.currentUser!.uid,
-        book.id,
+      // Check if user can access (free or premium with active subscription)
+      canAccess = await bookProvider.canUserAccessBook(
+        userId: authProvider.currentUser!.uid,
+        book: book,
       );
     }
 
     if (mounted) {
       setState(() {
         _book = book;
-        _isFavorite = isFavorite;
+        _canAccess = canAccess;
         _isLoading = false;
       });
     }
   }
 
-  Future<void> _toggleFavorite() async {
-    final authProvider = Provider.of<AuthProvider>(context, listen: false);
-    final bookProvider = Provider.of<BookProvider>(context, listen: false);
-
-    if (authProvider.currentUser == null || _book == null) return;
-
-    try {
-      await bookProvider.toggleFavorite(
-        authProvider.currentUser!.uid,
-        _book!.id,
-      );
-
-      setState(() {
-        _isFavorite = !_isFavorite;
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            _isFavorite ? 'Added to favorites' : 'Removed from favorites',
-          ),
-          backgroundColor: AppColors.success,
-        ),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e'), backgroundColor: AppColors.error),
-      );
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
     if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppColors.background,
-        body: Center(child: LoadingWidget(message: 'Loading book details...')),
+      return Scaffold(
+        backgroundColor: CardStyles.flatBackground(isDark),
+        body: const Center(child: LoadingWidget(message: 'Memuat detail buku...')),
       );
     }
 
     if (_book == null) {
       return Scaffold(
-        backgroundColor: AppColors.background,
+        backgroundColor: CardStyles.flatBackground(isDark),
         appBar: AppBar(
-          backgroundColor: AppColors.surface,
-          title: const Text('Book Not Found'),
+          backgroundColor: CardStyles.flatBackground(isDark),
+          title: Text(
+            'Buku Tidak Ditemukan',
+            style: TextStyle(color: CardStyles.primaryText(isDark)),
+          ),
         ),
-        body: const Center(
-          child: Text('Book not found', style: TextStyle(color: Colors.white)),
+        body: Center(
+          child: Text(
+            'Buku tidak ditemukan',
+            style: TextStyle(color: CardStyles.primaryText(isDark)),
+          ),
         ),
       );
     }
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: CardStyles.flatBackground(isDark),
       body: CustomScrollView(
         slivers: [
           // App Bar with book cover
           SliverAppBar(
             expandedHeight: 300,
             pinned: true,
-            backgroundColor: AppColors.surface,
+            backgroundColor: CardStyles.flatBackground(isDark),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: BoxDecoration(
@@ -146,22 +129,26 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                         imageUrl: _book!.coverImageUrl,
                         fit: BoxFit.cover,
                         placeholder: (context, url) => Container(
-                          color: AppColors.surfaceVariant,
-                          child: const Center(
+                          color: isDark
+                              ? AppColors.elegantGray
+                              : AppColors.accentWhite.withOpacity(0.5),
+                          child: Center(
                             child: Icon(
                               Icons.book,
                               size: 80,
-                              color: AppColors.textSecondary,
+                              color: AppColors.accentGold.withOpacity(0.5),
                             ),
                           ),
                         ),
                         errorWidget: (context, url, error) => Container(
-                          color: AppColors.surfaceVariant,
-                          child: const Center(
+                          color: isDark
+                              ? AppColors.elegantGray
+                              : AppColors.accentWhite.withOpacity(0.5),
+                          child: Center(
                             child: Icon(
                               Icons.error,
                               size: 80,
-                              color: AppColors.error,
+                              color: AppColors.danger,
                             ),
                           ),
                         ),
@@ -183,33 +170,20 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                   // Title and Author
                   Text(
                     _book!.title,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: CardStyles.primaryText(isDark),
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     _book!.author,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 18,
-                      color: AppColors.primary,
+                      color: AppColors.accentGold,
                       fontWeight: FontWeight.w500,
                     ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // Book stats
-                  Row(
-                    children: [
-                      _buildStatItem(Icons.star, _book!.formattedRating),
-                      const SizedBox(width: 24),
-                      _buildStatItem(Icons.download, '${_book!.downloadCount}'),
-                      const SizedBox(width: 24),
-                      _buildStatItem(Icons.category, _book!.category),
-                    ],
                   ),
 
                   const SizedBox(height: 24),
@@ -221,35 +195,46 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                       vertical: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.success,
+                      color: _book!.requiresPremium ? AppColors.warning : AppColors.success,
                       borderRadius: BorderRadius.circular(20),
                     ),
-                    child: Text(
-                      _book!.formattedPrice,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          _book!.requiresPremium ? Icons.workspace_premium : Icons.check_circle,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          _book!.accessLabel,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
 
                   const SizedBox(height: 32),
 
                   // Description
-                  const Text(
+                  Text(
                     'Description',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: CardStyles.primaryText(isDark),
                     ),
                   ),
                   const SizedBox(height: 12),
                   Text(
                     _book!.description,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 16,
-                      color: AppColors.textSecondary,
+                      color: CardStyles.secondaryText(isDark),
                       height: 1.5,
                     ),
                   ),
@@ -264,41 +249,26 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
                   // Action buttons
                   Row(
                     children: [
+                      // Main action button (Buy Premium or Read)
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () => _readBook(),
-                          icon: const Icon(Icons.book_outlined),
-                          label: const Text('Read Now'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                            minimumSize: const Size(double.infinity, 50),
+                          onPressed: _canAccess ? _readBook : _buyPremium,
+                          icon: Icon(_canAccess ? Icons.book_outlined : Icons.workspace_premium),
+                          label: Text(
+                            _canAccess 
+                                ? 'Baca Sekarang' 
+                                : 'Upgrade Premium',
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () => _downloadBook(),
-                          icon: const Icon(Icons.download),
-                          label: const Text('Download'),
                           style: ElevatedButton.styleFrom(
+                            backgroundColor: _canAccess 
+                                ? AppColors.accentGold
+                                : AppColors.warning,
+                            foregroundColor: isDark ? AppColors.primaryBlack : Colors.white,
                             minimumSize: const Size(double.infinity, 50),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      ElevatedButton(
-                        onPressed: () => _toggleFavorite(),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _isFavorite
-                              ? AppColors.error
-                              : AppColors.surfaceVariant,
-                          minimumSize: const Size(60, 50),
-                        ),
-                        child: Icon(
-                          _isFavorite ? Icons.favorite : Icons.favorite_border,
-                          color: _isFavorite ? Colors.white : null,
                         ),
                       ),
                     ],
@@ -312,40 +282,26 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
     );
   }
 
-  Widget _buildStatItem(IconData icon, String value) {
-    return Row(
-      children: [
-        Icon(icon, size: 16, color: AppColors.primary),
-        const SizedBox(width: 4),
-        Text(
-          value,
-          style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
-        ),
-      ],
-    );
-  }
-
   Widget _buildBookInfo() {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.isDarkMode;
+    
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: CardStyles.modernCard(isDark),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Book Information',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: CardStyles.primaryText(isDark),
             ),
           ),
           const SizedBox(height: 16),
           _buildInfoRow('Language', _book!.language),
-          _buildInfoRow('File Size', _book!.formattedFileSize),
           _buildInfoRow('Format', _book!.fileType.toUpperCase()),
           _buildInfoRow('Published', _book!.publishedDate.year.toString()),
         ],
@@ -354,16 +310,22 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   }
 
   Widget _buildInfoRow(String label, String value) {
+    final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+    final isDark = themeProvider.isDarkMode;
+    
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: AppColors.textSecondary)),
+          Text(
+            label,
+            style: TextStyle(color: CardStyles.secondaryText(isDark)),
+          ),
           Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: CardStyles.primaryText(isDark),
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -373,26 +335,59 @@ class _BookDetailScreenState extends State<BookDetailScreen> {
   }
 
   void _readBook() {
-    if (_book != null) {
-      // Increment view count when book is opened for reading
-      final bookProvider = Provider.of<BookProvider>(context, listen: false);
-      bookProvider.incrementViewCount(_book!.id);
+    if (_book == null) return;
 
-      // Navigate to PDF reader
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => PDFReaderScreen(book: _book!)),
+    // Check if user can access the book
+    if (!_canAccess && _book!.requiresPremium) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Upgrade ke Premium untuk membaca buku ini'),
+          backgroundColor: AppColors.warning,
+          action: SnackBarAction(
+            label: 'Upgrade',
+            textColor: Colors.white,
+            onPressed: () => _buyPremium(),
+          ),
+        ),
       );
+      return;
     }
+
+    // Increment view count when book is opened for reading
+    final bookProvider = Provider.of<BookProvider>(context, listen: false);
+    bookProvider.incrementViewCount(_book!.id);
+
+    // Navigate to PDF reader
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => PDFReaderScreen(book: _book!)),
+    );
   }
 
-  void _downloadBook() {
-    // TODO: Implement download functionality
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Download functionality will be implemented'),
-        backgroundColor: AppColors.info,
+  void _buyPremium() {
+    if (_book == null) return;
+
+    // Check if user already has premium access
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    if (authProvider.currentUser?.isPremium == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('Anda sudah memiliki akses Premium'),
+          backgroundColor: AppColors.info,
+        ),
+      );
+      return;
+    }
+
+    // Navigate to premium subscription screen
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const PremiumSubscriptionScreen(),
       ),
-    );
+    ).then((_) {
+      // Reload book data when returning
+      _loadBook();
+    });
   }
 }

@@ -8,7 +8,7 @@ import '../../providers/favorite_provider.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/theme/card_styles.dart';
 import '../../models/book_model.dart';
-import '../book/pdf_reader_screen.dart';
+import '../book/book_detail_screen.dart';
 
 class BooksLibraryScreen extends StatefulWidget {
   const BooksLibraryScreen({super.key});
@@ -174,7 +174,7 @@ class _BooksLibraryScreenState extends State<BooksLibraryScreen>
                       : AppColors.primaryBlack,
                 ),
                 decoration: InputDecoration(
-                  hintText: 'Search books, authors, categories...',
+                  hintText: 'Cari buku, penulis, kategori...',
                   hintStyle: TextStyle(
                     color: isDark
                         ? AppColors.accentWhite.withOpacity(0.6)
@@ -349,14 +349,12 @@ class _BooksLibraryScreenState extends State<BooksLibraryScreen>
   Widget _buildBookCard(BookModel book, bool isDark) {
     return GestureDetector(
       onTap: () {
-        // Increment view count when book is opened
-        final bookProvider = Provider.of<BookProvider>(context, listen: false);
-        bookProvider.incrementViewCount(book.id);
-
-        // Navigate to PDF reader for direct reading
+        // Navigate to book detail screen
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => PDFReaderScreen(book: book)),
+          MaterialPageRoute(
+            builder: (context) => BookDetailScreen(bookId: book.id),
+          ),
         );
       },
       child: Container(
@@ -391,6 +389,54 @@ class _BooksLibraryScreenState extends State<BooksLibraryScreen>
                           )
                         : _buildPlaceholderCover(isDark),
                   ),
+                  // Premium Badge (only show if book requires premium)
+                  if (book.requiresPremium)
+                    Positioned(
+                      top: 8,
+                      left: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.accentGold,
+                              AppColors.accentGold.withOpacity(0.8),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(6),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppColors.accentGold.withOpacity(0.3),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.workspace_premium,
+                              size: 10,
+                              color: Colors.black87,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'PREMIUM',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black87,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                   // Favorite Button
                   Positioned(
                     top: 8,
@@ -472,26 +518,6 @@ class _BooksLibraryScreenState extends State<BooksLibraryScreen>
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                  ),
-                  const Spacer(),
-                  Row(
-                    children: [
-                      Icon(
-                        FontAwesomeIcons.eye,
-                        size: 12,
-                        color: AppColors.accentGold,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${book.viewCount}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.accentGold,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const Spacer(),
-                    ],
                   ),
                 ],
               ),
